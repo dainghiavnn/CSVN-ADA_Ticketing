@@ -18,28 +18,21 @@ if 'logged_in' not in st.session_state or not st.session_state['logged_in']:
 st.markdown("""
     <style>
         .block-container { padding-top: 1rem !important; max-width: 98% !important; }
-        
-        /* Ép khoảng cách các dòng form gọn lại */
         div[data-testid="stVerticalBlock"] > div { margin-bottom: -8px !important; }
         .stSelectbox, .stTextInput, .stMultiSelect, .stDateInput { margin-bottom: 5px !important; }
         label { font-size: 13px !important; font-weight: 600 !important; color: #444; }
         
-        /* BẢO VỆ KHUNG BORDER: Tự động nới lỏng padding để không dính vào chữ */
-        div[data-testid="stVerticalBlockBorderWrapper"] {
-            padding: 12px 15px !important; 
-            margin-top: 5px !important;
-            border-radius: 8px !important;
-            border: 1px solid #ff4b4b !important; /* Đổi màu viền thành đỏ nhạt cho hợp tone */
-        }
-        
-        /* Style cho dòng chữ đỏ Customer Complaint */
-        .complaint-text {
+        /* Ép màu đỏ và in đậm trực tiếp cho chữ của ô tick Customer Complaint */
+        div[data-testid="stCheckbox"] p {
             color: red !important;
             font-size: 16px !important;
             font-weight: 900 !important;
             text-transform: uppercase !important;
-            margin: 0px !important;
-            padding-top: 2px !important; 
+        }
+        
+        /* (Tùy chọn) Đổi viền ô vuông thành đỏ nếu muốn giống giao diện cũ */
+        div[data-testid="stCheckbox"] div[role="checkbox"] {
+            border-color: red !important;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -135,7 +128,8 @@ with col_form:
     is_cp = st.checkbox("THIS IS A CUSTOMER COMPLAINT ?")
 
     if rs_detail: st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'N/A')}")
-    cmt = st.text_area("Comment / Description", height=60
+    cmt = st.text_area("Comment / Description", height=60)
+
     # NÚT SUBMIT
     if st.button("Submit Ticket", type="primary", use_container_width=True):
         if not uid or not rs_detail:

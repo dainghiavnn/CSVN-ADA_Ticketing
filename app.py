@@ -2,37 +2,39 @@ import streamlit as st
 import pandas as pd
 import gspread
 
-st.set_page_config(layout="centered", page_title="Unified Login Hub")
+# Cấu hình trang trung tâm
+st.set_page_config(layout="centered", page_title="ADAHUB Unified Login")
 
-# Khởi tạo session state
+# 1. Khởi tạo Session State
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 if 'user_project' not in st.session_state:
     st.session_state['user_project'] = ""
+if 'agent_name' not in st.session_state:
+    st.session_state['agent_name'] = ""
 
-# --- HÀM KIỂM TRA ĐĂNG NHẬP ---
+# 2. Hàm kiểm tra đăng nhập từ Google Sheets
 def check_login(email, password):
-    # Lấy data từ sheet agent_id
     gc = gspread.service_account_from_dict(st.secrets["gcp_service_account"])
     sh = gc.open_by_url(st.secrets["DATA_SHEET_URL"])
     df_ag = pd.DataFrame(sh.worksheet("agent_id").get_all_records())
     
     if not df_ag.empty:
+        # Lọc dữ liệu theo MAIL và PASS
         match = df_ag[(df_ag["MAIL"] == email) & (df_ag["PASS"] == str(password))]
         if not match.empty:
             st.session_state['logged_in'] = True
             st.session_state['user_email'] = email
             st.session_state['agent_name'] = match.iloc[0]["NAME"]
-            # Lưu lại tên Project của user này (Lấy từ cột PROJECT trong sheet)
-            st.session_state['user_project'] = match.iloc[0].get("PROJECT", "ADA") 
+            st.session_state['user_project'] = str(match.iloc[0].get("PROJECT", "")).strip().upper()
             return True
     return False
 
-# --- MÀN HÌNH LOGIN ---
+# 3. Màn hình Login (Bị chặn ở đây nếu chưa đăng nhập)
 if not st.session_state['logged_in']:
     st.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True)
     with st.container(border=True):
-        st.markdown("### 🔐 UNIFIED HUB LOGIN")
+        st.markdown("### 🔐 ADAHUB UNIFIED LOGIN")
         email_input = st.text_input("Email")
         pass_input = st.text_input("Password", type="password")
         if st.button("Login", type="primary", use_container_width=True):
@@ -40,28 +42,37 @@ if not st.session_state['logged_in']:
                 st.rerun()
             else:
                 st.error("Sai tài khoản hoặc mật khẩu.")
-    st.stop() # Dừng code tại đây nếu chưa login
+    st.stop() # Dừng toàn bộ code bên dưới
 
-# --- ĐIỀU HƯỚNG ĐỘNG (DYNAMIC ROUTING) ---
-# Dựa vào tên project của user, Streamlit sẽ chỉ nạp đúng trang tương ứng
-pages = {}
+# 4. KHAI BÁO CÁC TRANG DỰ ÁN CÓ SẴN (Trong thư mục 'pages/')
+page_csvn = st.Page("pages/csvn_ticket.py", title="Dự án CSVN", icon="📝")
+page_loreal = st.Page("pages/loreal_ticket.py", title="Dự án L'OREAL", icon="💄")
+# Sau này có project mới thì cứ khai báo thêm page ở đây
 
-if st.session_state['user_project'] == "ADA":
-    pages["Dự án ADA"] = [
-        st.Page("pages/ada_ticket.py", title="ADA Master Log", icon="📝"),
-        # st.Page("pages/ada_dashboard.py", title="Báo cáo ADA", icon="📊") # Mốt có thể thêm
-    ]
-elif st.session_state['user_project'] == "PROJECT_B":
-    pages["Dự án B"] = [
-        st.Page("pages/project_b_ticket.py", title="Project B Log", icon="📦")
-    ]
+# 5. LOGIC PHÂN QUYỀN VÀ ĐIỀU HƯỚNG (DYNAMIC NAVIGATION)
+pages_dict = {}
+role = st.session_state['user_project']
 
-# Gắn nút Logout vào sidebar
+if role == "ADMIN":
+    # Admin thấy toàn bộ
+    pages_dict["Quản lý Toàn phần (ADMIN)"] = [page_csvn, page_loreal]
+elif role == "CSVN":
+    # Team CSVN chỉ thấy CSVN
+    pages_dict["Workspace"] = [page_csvn]
+elif role == "LOREAL":
+    # Team L'OREAL chỉ thấy L'OREAL
+    pages_dict["Workspace"] = [page_loreal]
+else:
+    st.error("Tài khoản của bạn chưa được phân bổ vào dự án nào hợp lệ.")
+    st.stop()
+
+# Hiển thị thông tin User và nút Logout ở Sidebar
 st.sidebar.markdown(f"**👤 {st.session_state['agent_name']}**")
+st.sidebar.caption(f"Role: {role}")
 if st.sidebar.button("Logout", use_container_width=True):
     st.session_state.clear()
     st.rerun()
 
-# Khởi chạy hệ thống điều hướng
-pg = st.navigation(pages)
+# Kích hoạt bộ điều hướng của Streamlit
+pg = st.navigation(pages_dict)
 pg.run()

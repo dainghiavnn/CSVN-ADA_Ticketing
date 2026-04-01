@@ -8,24 +8,22 @@ from sqlalchemy import create_engine, text
 import gspread
 
 # ==========================================
-# CẤU HÌNH TRANG (Bắt buộc để full màn hình)
+# CẤU HÌNH TRANG
 # ==========================================
 st.set_page_config(layout="wide", page_title="ADAHUB Unified v24.28 (Web)")
 
 BRAND_ENABLED_STORES = {"Bách Hóa Unilever Official Store", "Unilever Premium Beauty", "KAO Official Store"}
 
-# Khởi tạo session state cho Ticket ID và System Log để không bị mất khi reload
 if 'tid' not in st.session_state:
     st.session_state['tid'] = f"CSVN-{dt.date.today().strftime('%d%m%y')}-{uuid.uuid4().hex[:6].upper()}"
 if 'sys_log' not in st.session_state:
     st.session_state['sys_log'] = []
 
 # ==========================================
-# 1. LOAD CONFIG TỪ GOOGLE SHEETS (DÙNG CACHE)
+# 1. LOAD CONFIG TỪ GOOGLE SHEETS
 # ==========================================
-@st.cache_data(ttl=600) # Cache 10 phút để tránh bị limit API
+@st.cache_data(ttl=600)
 def load_data_models():
-    # Sử dụng Service Account JSON lưu trong st.secrets
     gc = gspread.service_account_from_dict(st.secrets["gcp_service_account"])
     sh = gc.open_by_url(st.secrets["DATA_SHEET_URL"])
     
@@ -69,11 +67,10 @@ def load_data_models():
         "all_parents": all_parents, "activities": act_list, "channels": channels
     }
 
-# Load dữ liệu config vào biến m
 m = load_data_models()
 
 # ==========================================
-# 2. HÀM KẾT NỐI POSTGRESQL (STORAGE ENGINE)
+# 2. HÀM KẾT NỐI POSTGRESQL
 # ==========================================
 def get_pg_engine():
     pg = st.secrets["postgres"]
@@ -89,10 +86,9 @@ def get_escalation_by_oid(oid):
     engine = get_pg_engine()
     try:
         df = pd.read_sql(f"SELECT * FROM escalations WHERE oid = '{oid}'", engine)
-        if not df.empty: return df.iloc[-1].to_dict() # Lấy record mới nhất
+        if not df.empty: return df.iloc[-1].to_dict()
     except: pass
     return None
-
 
 # ==========================================
 # GIAO DIỆN CHÍNH (UI)
@@ -105,66 +101,75 @@ tab1, tab2 = st.tabs(["Standard Master (1)", "Escalation Hub (2)"])
 # TAB 1: STANDARD MASTER
 # ------------------------------------------
 with tab1:
-    # Chia trang thành 2 cột: Cột Form (chiếm 7 phần) và Cột Log (chiếm 3 phần)
+    # Chia form 70% bên trái, log 30% bên phải
     col_form, col_spacer, col_log = st.columns([7, 0.5, 3])
     
-    # --- CỘT TRÁI: MASTER LOG ENTRY ---
+    # --- CỘT TRÁI: MASTER LOG ENTRY (Dàn 2 cột đều nhau) ---
     with col_form:
         st.subheader("Master Log Entry")
         
-        # Block 1: Thông tin chung
-        c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            channel_index = m["channels"].index("Chat") if "Chat" in m["channels"] else 0
-            channel = st.selectbox("Channel *", options=m["channels"], index=channel_index)
-            inq_time = st.time_input("Inquiry Time", value=dt.datetime.now().time())
-        with c2:
-            agent = st.selectbox("Agent *", options=m["agents"])
-            rating = st.radio("Rating (Reviews)", options=["1","2","3","4","5","No"], index=5, horizontal=True)
-        with c3:
-            activity = st.multiselect("Activity Type", options=m["activities"], default=["INBOUND"])
-        with c4:
-            inq_date = st.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
-            st.markdown("<br>", unsafe_allow_html=True) # Spacer cho cân đối
-            is_complaint = st.checkbox("THIS IS A CUSTOMER COMPLAINT ?", value=False)
-            if is_complaint: 
-                st.error("🚨 Đã đánh dấu là Khiếu nại!")
+        # Row 1: Channel & Agent
+        r1_c1, r1_c2 = st.columns(2)
+        channel_index = m["channels"].index("Chat") if "Chat" in m["channels"] else 0
+        channel = r1_c1.selectbox("Channel *", options=m["channels"], index=channel_index)
+        agent = r1_c2.selectbox("Agent *", options=m["agents"])
+        
+        # Row 2: Activity & Rating
+        r2_c1, r2_c2 = st.columns(2)
+        activity = r2_c1.multiselect("Activity Type", options=m["activities"], default=["INBOUND"])
+        rating = r2_c2.radio("Rating (Reviews)", options=["1","2","3","4","5","No"], index=5, horizontal=True)
+        
+        # Row 3: Date & Time
+        r3_c1, r3_c2 = st.columns(2)
+        inq_date = r3_c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
+        inq_time = r3_c2.time_input("Inquiry Time", value=dt.datetime.now().time())
+        
+        # Checkbox Khiếu nại (Trải dài 1 dòng riêng cho nổi bật)
+        is_complaint = st.checkbox("THIS IS A CUSTOMER COMPLAINT ?", value=False)
+        if is_complaint: 
+            st.error("🚨 Đã đánh dấu là Khiếu nại!")
 
-        st.markdown("---")
+        st.divider()
         
-        # Block 2: Logic Sync (Platform -> Client -> Store -> Brand)
-        c_pl, c_cl, c_st, c_br = st.columns(4)
-        pl = c_pl.selectbox("Platform *", options=list(m["p_to_c"].keys()))
-        
+        # Row 4: Platform & Client
+        r4_c1, r4_c2 = st.columns(2)
+        pl = r4_c1.selectbox("Platform *", options=list(m["p_to_c"].keys()))
         cl_options = sorted(list(m["p_to_c"].get(pl, [])))
-        cl = c_cl.selectbox("Client *", options=cl_options)
+        cl = r4_c2.selectbox("Client *", options=cl_options)
         
+        # Row 5: Store & Brand
+        r5_c1, r5_c2 = st.columns(2)
         st_options = sorted(list(m["pc_to_s"].get((pl, cl), set())))
-        store = c_st.selectbox("Store *", options=st_options)
-        
+        store = r5_c1.selectbox("Store *", options=st_options)
         is_enable = store in BRAND_ENABLED_STORES
         br_options = sorted(m["s_to_b"].get(store, [])) if is_enable else []
-        brand = c_br.selectbox("Brand", options=br_options, disabled=not is_enable)
+        brand = r5_c2.selectbox("Brand", options=br_options, disabled=not is_enable)
         
-        # Block 3: Details & OID
-        c_sk, c_oid, c_uid = st.columns([1, 1, 2])
-        sku = c_sk.text_input("Related SKU", disabled=not is_enable)
-        oid = c_oid.text_input("OID Reference")
-        uid = c_uid.text_input("User ID (bắt buộc) *")
+        st.divider()
         
-        # Block 4: Reason
-        c_rs, c_rp = st.columns(2)
+        # Row 6: SKU & OID
+        r6_c1, r6_c2 = st.columns(2)
+        sku = r6_c1.text_input("Related SKU", disabled=not is_enable)
+        oid = r6_c2.text_input("OID Reference")
+        
+        # Row 7: User ID & Reason Detail
+        r7_c1, r7_c2 = st.columns(2)
+        uid = r7_c1.text_input("User ID (bắt buộc) *")
         dt_options = sorted(list(m["d_to_r"].keys()))
-        rs_detail = c_rs.selectbox("Reason Details (bắt buộc) *", options=dt_options)
+        rs_detail = r7_c2.selectbox("Reason Details (bắt buộc) *", options=dt_options)
+        
+        # Row 8: Reason Parent & Guide Info
+        r8_c1, r8_c2 = st.columns(2)
         rs_parent = m["d_to_r"].get(rs_detail, "")
-        c_rp.text_input("Reason Parent", value=rs_parent, disabled=True)
+        r8_c1.text_input("Reason Parent", value=rs_parent, disabled=True)
+        with r8_c2:
+            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True) # Spacer để box Info thẳng hàng với input bên trái
+            st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'Waiting Selection.')}")
         
-        # Hiển thị Guideline
-        st.info(f"**Contact Reason:** {rs_parent} &nbsp;|&nbsp; **Guide:** {m['d_to_e'].get(rs_detail, 'Waiting Selection.')}")
-        
+        # Dòng cuối: Comment trải dài hết khung
         cmt = st.text_area("Comment / Description", height=68)
 
-        # Nút Bấm Submit & Xử lý Postgres
+        # Nút Bấm Submit
         if st.button("Submit Data", type="primary", use_container_width=True):
             if not uid.strip() or not rs_detail.strip():
                 st.warning("Reason Details & User ID là bắt buộc.")
@@ -178,7 +183,6 @@ with tab1:
                 ]
                 cau_random = random.choice(vui_ve)
                 
-                # Map dữ liệu để đưa vào Postgres
                 row_data = {
                     "ticket_id": st.session_state['tid'], "agent": agent, "activity": ", ".join(activity),
                     "channel": channel, "platform": pl, "client": cl, "store": store,
@@ -190,14 +194,9 @@ with tab1:
                 }
                 
                 try:
-                    # LƯU VÀO DATABASE
                     save_to_postgres(row_data, "master_logs")
-                    
-                    # Cập nhật System Log nội bộ UI
                     log_html = f"✅ Logged: {st.session_state['tid']} | User ID: **{uid}** <br> <span style='color:#60A5FA'><i>- {cau_random}</i></span>"
                     st.session_state['sys_log'].insert(0, log_html)
-                    
-                    # Cấp mã Ticket mới và refresh
                     st.session_state['tid'] = f"CSVN-{dt.date.today().strftime('%d%m%y')}-{uuid.uuid4().hex[:6].upper()}"
                     st.rerun() 
                 except Exception as e:
@@ -206,9 +205,7 @@ with tab1:
     # --- CỘT PHẢI: SYSTEM LOG ---
     with col_log:
         st.subheader("System Log")
-        
-        # Dùng container có thanh cuộn để log không làm tràn trang xuống quá sâu
-        log_container = st.container(height=680, border=True)
+        log_container = st.container(height=800, border=True) # Kéo dài height một chút để vừa vặn với form mới
         with log_container:
             if not st.session_state['sys_log']:
                 st.caption("Chưa có dữ liệu log mới trong phiên làm việc này.")
@@ -216,7 +213,6 @@ with tab1:
                 for log in st.session_state['sys_log']:
                     st.markdown(log, unsafe_allow_html=True)
                     st.divider()
-
 
 # ------------------------------------------
 # TAB 2: ESCALATION HUB
@@ -279,7 +275,6 @@ with tab2:
                 try:
                     if is_update:
                         new_note = str(old_data.get("cs_note", "")) + "\n" + formatted_entry
-                        # Dùng Parameterized Query để chống SQL Injection
                         stmt = text("UPDATE escalations SET cs_note=:note, status=:st WHERE oid=:oid")
                         with engine.begin() as conn:
                             conn.execute(stmt, {"note": new_note, "st": cb_status, "oid": search_oid})

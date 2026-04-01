@@ -8,6 +8,7 @@ from sqlalchemy import create_engine, text
 import gspread
 
 # ===== CONFIGURATION & HYBRID SETUP =====
+st.set_page_config(layout="wide", page_title="ADAHUB Unified v24.28 (Web)")
 
 BRAND_ENABLED_STORES = {"Bách Hóa Unilever Official Store", "Unilever Premium Beauty", "KAO Official Store"}
 
@@ -118,7 +119,7 @@ def save_to_postgres(data_dict, table_name):
 # ==========================================
 st.title("ADAHUB Unified v24.28 (Web)")
 
-# 3. DÀN TRANG (7:3) - Khôi phục lại dàn ô chuẩn
+# 3. DÀN TRANG (7:3)
 col_form, col_spacer, col_log = st.columns([6.8, 0.2, 3])
 
 # ================= CỘT TRÁI (FORM NHẬP LIỆU) =================
@@ -126,7 +127,7 @@ with col_form:
 
     # ROW 2: CHANNEL & PLATFORM
     r2c1, r2c2 = st.columns(2)
-    chan_opts = m["channels"] # <--- ĐÃ FIX LỖI Ở ĐÂY (chans -> channels)
+    chan_opts = m["channels"]
     chat_idx = chan_opts.index("Chat") if "Chat" in chan_opts else 0
     channel = r2c1.selectbox("Channel *", options=chan_opts, index=chat_idx)
     pl = r2c2.selectbox("Platform *", options=list(m["p_to_c"].keys()))
@@ -168,12 +169,11 @@ with col_form:
     space_left, center_col, space_right = st.columns([1, 2, 1])
     with center_col:
         is_cp = st.checkbox("THIS IS A CUSTOMER COMPLAINT ?")
-
+    
     # ROW 1: INQUIRY DATE & TIME
     r1c1, r1c2 = st.columns(2)
     inq_date = r1c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
     inq_time = r1c2.text_input("Inquiry Time (VD: 1830 hoặc 18:30)", value=dt.datetime.now().strftime("%H:%M"))
-
 
     cmt = st.text_area("Comment / Description", height=60)
 
@@ -214,7 +214,7 @@ with col_form:
                 "timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
             try:
-                # Sử dụng hàm save_to_postgres từ logic mới
+                # Sử dụng hàm save_to_postgres
                 save_to_postgres(row_data, "master_logs")
                 
                 vui_ve = [
@@ -239,14 +239,8 @@ with col_log:
     st.markdown("##### System Info")
     st.text_input("Ticket ID", value=st.session_state['tid'], disabled=True)
     
-    # Cho phép chọn Agent nếu chưa có (Lấy mảng Agent từ config)
-    agent_idx = m["agents"].index(current_agent_name) if current_agent_name in m["agents"] else 0
-    selected_agent = st.selectbox("Agent", options=m["agents"], index=agent_idx)
-    
-    # Lưu lại Agent nếu đổi
-    if selected_agent != current_agent_name:
-        st.session_state['agent_name'] = selected_agent
-        st.rerun()
+    # KHÓA CHẶT AGENT: Chỉ hiển thị tên người đã login
+    st.text_input("Agent", value=current_agent_name, disabled=True)
     
     st.markdown("<hr style='margin:0.5em 0;'>", unsafe_allow_html=True)
     st.markdown("##### System Log")

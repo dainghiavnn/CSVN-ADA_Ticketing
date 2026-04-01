@@ -123,7 +123,6 @@ col_form, col_spacer, col_log = st.columns([6.8, 0.2, 3])
 
 # ================= CỘT TRÁI (FORM NHẬP LIỆU) =================
 with col_form:
-    st.markdown("##### Master Log Entry")
 
     # ROW 2: CHANNEL & PLATFORM
     r2c1, r2c2 = st.columns(2)

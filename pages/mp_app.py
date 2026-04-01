@@ -94,11 +94,6 @@ col_form, col_spacer, col_log = st.columns([6.8, 0.2, 3])
 # ================= CỘT TRÁI (FORM NHẬP LIỆU) =================
 with col_form:
     st.markdown("##### MP Ticketing Form")
-    
-    # ROW 1: INQUIRY DATE & TIME
-    r1c1, r1c2 = st.columns(2)
-    inq_date = r1c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
-    inq_time = r1c2.text_input("Inquiry Time (HH:MM)", value=dt.datetime.now().strftime("%H:%M"))
 
     # ROW 2: CHANNEL & PLATFORM
     r2c1, r2c2 = st.columns(2)
@@ -131,6 +126,11 @@ with col_form:
     r6c1, r6c2 = st.columns(2)
     oid = r6c1.text_input("OID Reference")
     uid = r6c2.text_input("User ID *")
+    
+    # ROW 1: INQUIRY DATE & TIME
+    r1c1, r1c2 = st.columns(2)
+    inq_date = r1c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
+    inq_time = r1c2.text_input("Inquiry Time (HH:MM)", value=dt.datetime.now().strftime("%H:%M"))
     
     # ROW 7: REASON PARENT (TRÁI) & DETAIL (PHẢI)
     r7c1, r7c2 = st.columns(2)

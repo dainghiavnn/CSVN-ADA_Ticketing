@@ -58,7 +58,7 @@ st.markdown("""
 @st.cache_data(ttl=600) # Cache 10 phút để tránh bị limit API
 def load_data_models():
     gc = gspread.service_account_from_dict(st.secrets["gcp_service_account"])
-    sh = gc.open_by_url(st.secrets["DATA_SHEET_URL"])
+    sh = gc.open_by_url(st.secrets["DATA_MP_URL"])
     
     def to_df(n):
         try:
@@ -154,7 +154,7 @@ with col_form:
 
     # ROW 6: OID & USER ID
     r6c1, r6c2 = st.columns(2)
-    oid = r6c1.text_input("OID Reference")
+    oid = r6c1.text_input("OID")
     uid = r6c2.text_input("User ID *")
     
     # ROW 7: REASON PARENT (TRÁI) & DETAIL (PHẢI)

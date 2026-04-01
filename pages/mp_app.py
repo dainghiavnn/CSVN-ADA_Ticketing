@@ -25,7 +25,13 @@ st.markdown("""
         .block-container { padding-top: 1rem !important; max-width: 98% !important; }
         div[data-testid="stVerticalBlock"] > div { margin-bottom: -8px !important; }
         .stSelectbox, .stTextInput, .stMultiSelect, .stDateInput, .stRadio { margin-bottom: 5px !important; }
-        label { font-size: 13px !important; font-weight: 600 !important; color: #444; }
+        
+        /* IN ĐẬM VÀ LÀM RÕ TITLE CỦA CÁC TRƯỜNG NHẬP LIỆU */
+        label, div[data-testid="stWidgetLabel"] p { 
+            font-size: 14px !important; 
+            font-weight: 800 !important; /* In đậm nét chữ */
+            color: #000 !important;      /* Màu đen tuyền để nổi bật */
+        }
         
         /* Ép màu đỏ và in đậm trực tiếp cho chữ của ô tick Customer Complaint */
         div[data-testid="stCheckbox"] p {
@@ -88,6 +94,11 @@ col_form, col_spacer, col_log = st.columns([6.8, 0.2, 3])
 # ================= CỘT TRÁI (FORM NHẬP LIỆU) =================
 with col_form:
     st.markdown("##### MP Ticketing Form")
+    
+    # ROW 1: INQUIRY DATE & TIME
+    r1c1, r1c2 = st.columns(2)
+    inq_date = r1c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
+    inq_time = r1c2.text_input("Inquiry Time (HH:MM)", value=dt.datetime.now().strftime("%H:%M"))
 
     # ROW 2: CHANNEL & PLATFORM
     r2c1, r2c2 = st.columns(2)
@@ -126,11 +137,6 @@ with col_form:
     rs_detail = r7c2.selectbox("Reason Detail *", options=sorted(m["d_to_r"].keys()), index=None, placeholder="🔍 Tìm lý do...")
     rs_parent = m["d_to_r"].get(rs_detail, "") if rs_detail else ""
     r7c1.text_input("Reason Parent", value=rs_parent, disabled=True)
-
-    # ROW 1: INQUIRY DATE & TIME
-    r1c1, r1c2 = st.columns(2)
-    inq_date = r1c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
-    inq_time = r1c2.text_input("Inquiry Time (HH:MM)", value=dt.datetime.now().strftime("%H:%M"))
     
     # ROW 8: CUSTOMER COMPLAINT (CĂN GIỮA TUYỆT ĐỐI)
     st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)

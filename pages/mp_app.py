@@ -8,7 +8,6 @@ from sqlalchemy import create_engine, text
 import gspread
 
 # ===== CONFIGURATION & HYBRID SETUP =====
-st.set_page_config(layout="wide", page_title="ADAHUB Unified v24.28 (Web)")
 
 BRAND_ENABLED_STORES = {"Bách Hóa Unilever Official Store", "Unilever Premium Beauty", "KAO Official Store"}
 

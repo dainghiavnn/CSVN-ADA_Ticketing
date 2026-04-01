@@ -111,12 +111,16 @@ with col_form:
     r8c1.text_input("Reason Parent", value=rs_parent, disabled=True)
     
     # ROW 9: CUSTOMER COMPLAINT (CHECKBOX VÀ CHỮ TRÊN 1 DÒNG)
-    comp_col1, comp_col2 = st.columns([0.05, 0.95])
-    with comp_col1:
-        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
-        is_cp = st.checkbox("", label_visibility="collapsed")
-    with comp_col2:
-        st.markdown('<p class="complaint-text">THIS IS A CUSTOMER COMPLAINT ?</p>', unsafe_allow_html=True)
+    with st.container(border=True):
+        # Sử dụng vertical_alignment="center" để checkbox và text thẳng hàng
+        comp_col1, comp_col2 = st.columns([0.1, 0.9], vertical_alignment="center")
+        with comp_col1:
+            is_cp = st.checkbox("", label_visibility="collapsed")
+        with comp_col2:
+            st.markdown('<p class="complaint-text">THIS IS A CUSTOMER COMPLAINT ?</p>', unsafe_allow_html=True)
+
+    if rs_detail: st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'N/A')}")
+    cmt = st.text_area("Comment / Description", height=60)
     
     # ROW 7: OID & USER ID
     r7c1, r7c2 = st.columns(2)

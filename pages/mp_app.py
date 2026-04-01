@@ -18,18 +18,28 @@ if 'logged_in' not in st.session_state or not st.session_state['logged_in']:
 st.markdown("""
     <style>
         .block-container { padding-top: 1rem !important; max-width: 98% !important; }
-        div[data-testid="stVerticalBlock"] > div { margin-bottom: -10px !important; }
-        .stSelectbox, .stTextInput, .stMultiSelect, .stDateInput { margin-bottom: 8px !important; }
+        
+        /* Ép khoảng cách các dòng form gọn lại */
+        div[data-testid="stVerticalBlock"] > div { margin-bottom: -8px !important; }
+        .stSelectbox, .stTextInput, .stMultiSelect, .stDateInput { margin-bottom: 5px !important; }
         label { font-size: 13px !important; font-weight: 600 !important; color: #444; }
+        
+        /* BẢO VỆ KHUNG BORDER: Tự động nới lỏng padding để không dính vào chữ */
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            padding: 12px 15px !important; 
+            margin-top: 5px !important;
+            border-radius: 8px !important;
+            border: 1px solid #ff4b4b !important; /* Đổi màu viền thành đỏ nhạt cho hợp tone */
+        }
         
         /* Style cho dòng chữ đỏ Customer Complaint */
         .complaint-text {
             color: red !important;
-            font-size: 18px !important;
+            font-size: 16px !important;
             font-weight: 900 !important;
             text-transform: uppercase !important;
-            margin-left: -20px;
-            margin-top: 5px;
+            margin: 0px !important;
+            padding-top: 2px !important; 
         }
     </style>
 """, unsafe_allow_html=True)
@@ -119,7 +129,7 @@ with col_form:
     rs_detail = r8c2.selectbox("Reason Detail *", options=sorted(m["d_to_r"].keys()), index=None, placeholder="🔍 Tìm lý do...")
     rs_parent = m["d_to_r"].get(rs_detail, "") if rs_detail else ""
     r8c1.text_input("Reason Parent", value=rs_parent, disabled=True)
-
+    
     # ROW 9: CUSTOMER COMPLAINT (Căn giữa theo chiều dọc, khung bọc gọn)
     with st.container(border=True):
         comp_col1, comp_col2 = st.columns([0.06, 0.94], vertical_alignment="center")
@@ -128,10 +138,6 @@ with col_form:
         with comp_col2:
             st.markdown('<p class="complaint-text">THIS IS A CUSTOMER COMPLAINT ?</p>', unsafe_allow_html=True)
 
-    if rs_detail: st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'N/A')}")
-    cmt = st.text_area("Comment / Description", height=60)
-
-    # Hiển thị Guide và Comment (Đã xóa bản sao bị trùng)
     if rs_detail: st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'N/A')}")
     cmt = st.text_area("Comment / Description", height=60)
 
@@ -167,51 +173,25 @@ with col_form:
                 
                 # QUOTES VUI VẺ
                 vui_ve = [
-                    "Em tuyệt dzời lắm 💞",
-                    "Ờ mây dzing! Gút chóp em! 😍",
-                    "Một chíu nữa thôi là clear xong cái shop rồi 😛",
-                    "Ê, làm đúng shop chưa đó ba?",
-                    "Nãy giờ đi đâu đó? 🤬🤬🤬",
-                    "Chat tiếp đi 🤨",
-                    "Tất cả là do Daniel 🤩",
-                    "Chị Uyên đẹp gái ha mấy đứa!😙",
-                    "Thẳng cái lưng lên 💢",
-                    "Ún mín nước đi rồi log tiếp! ☕",
-                    "Ai lớp Daniel 😘😘😘",
-                    "Đi *è đi 💦",
-                    "Tà tữa gì chưa người đẹp 🥛",
-                    "Coi chừng miss tin nhắn 😥 ",
-                    "Miss shop kìa má 🙃",
-                    "Shop nhỏ đừng quên 😫",
+                    "Em tuyệt dzời lắm 💞", "Ờ mây dzing! Gút chóp em! 😍",
+                    "Một chíu nữa thôi là clear xong cái shop rồi 😛", "Ê, làm đúng shop chưa đó ba?",
+                    "Nãy giờ đi đâu đó? 🤬🤬🤬", "Chat tiếp đi 🤨", "Tất cả là do Daniel 🤩",
+                    "Chị Uyên đẹp gái ha mấy đứa!😙", "Thẳng cái lưng lên 💢", "Ún mín nước đi rồi log tiếp! ☕",
+                    "Ai lớp Daniel 😘😘😘", "Đi *è đi 💦", "Tà tữa gì chưa người đẹp 🥛",
+                    "Coi chừng miss tin nhắn 😥 ", "Miss shop kìa má 🙃", "Shop nhỏ đừng quên 😫",
                     "Cứu Thuận Phát/ Reckitt/ Nutifood/ Ensure/ Curel đi mấy níííííííí 😥",
-                    "Bảo vệ thận đi mậy!🚽🚽🚽",
-                    "Clear lẹ lẹ còn đi date mầy ôi 🙄!",
-                    "Nhiều tin quá, cíu bóe 🔥🔥🔥🚒🚒🚒",
-                    "Quên cái gì không đó mại 😗",
-                    "Mắt mở chưa đó 😳",
-                    "Mới vô ca mà mệt rồi hả mại 😪",
-                    "Còn sống không đó 😬",
-                    "Làm đúng quy trình chưa đó bé ơi 😑",
-                    "Nhìn lại lần nữa cho chắc 🧐",
-                    "Coi lại shop nhỏ dùm chị tui 😫",
-                    "Hơi lag đó, tỉnh lên 😤",
-                    "Nhìn kỹ tên shop hộ cái 😬",
-                    "Gần hết ca rồi, ráng 😭",
-                    "Senior đang theo dõi log đó 👀",
-                    "Đừng để Senior nhắc lần 3 😈",
-                    "Làm lẹ nhưng mà đừng ẩu nha mại 😑",
-                    "Lướt ít thôi má ơi 😑",
-                    "Cái này quen mà, làm đi 😌 Sai oánh đòn!",
-                    "Đừng có biến mất nha 😶‍🌫️",
-                    "Gì mà giỏi dữ vậy trời 😘😘😘",
-                    "Mượt như sunsilk 🧴",
-                    "Tự nhiên thấy tự hào dùm luôn á 😭",
-                    "Cái này mà không ổn thì cái gì ổn 😤",
-                    "Đừng có lịm ngang nha ní 😱",
-                    "Còn sống không, log cái nữa coi 😬",
-                    "Còn thở là còn Log 😎",
-                    "Log gì mà pro max dữ vị ⭐",
-                    "Mừi đỉm, khum lói nhèo ⭐⭐⭐"
+                    "Bảo vệ thận đi mậy!🚽🚽🚽", "Clear lẹ lẹ còn đi date mầy ôi 🙄!",
+                    "Nhiều tin quá, cíu bóe 🔥🔥🔥🚒🚒🚒", "Quên cái gì không đó mại 😗",
+                    "Mắt mở chưa đó 😳", "Mới vô ca mà mệt rồi hả mại 😪", "Còn sống không đó 😬",
+                    "Làm đúng quy trình chưa đó bé ơi 😑", "Nhìn lại lần nữa cho chắc 🧐",
+                    "Coi lại shop nhỏ dùm chị tui 😫", "Hơi lag đó, tỉnh lên 😤", "Nhìn kỹ tên shop hộ cái 😬",
+                    "Gần hết ca rồi, ráng 😭", "Senior đang theo dõi log đó 👀", "Đừng để Senior nhắc lần 3 😈",
+                    "Làm lẹ nhưng mà đừng ẩu nha mại 😑", "Lướt ít thôi má ơi 😑",
+                    "Cái này quen mà, làm đi 😌 Sai oánh đòn!", "Đừng có biến mất nha 😶‍🌫️",
+                    "Gì mà giỏi dữ vậy trời 😘😘😘", "Mượt như sunsilk 🧴", "Tự nhiên thấy tự hào dùm luôn á 😭",
+                    "Cái này mà không ổn thì cái gì ổn 😤", "Đừng có lịm ngang nha ní 😱",
+                    "Còn sống không, log cái nữa coi 😬", "Còn thở là còn Log 😎",
+                    "Log gì mà pro max dữ vị ⭐", "Mừi đỉm, khum lói nhèo ⭐⭐⭐"
                 ]
                 cau_random = random.choice(vui_ve)
                 

@@ -133,7 +133,7 @@ with col_form:
 
     # ROW 2: CHANNEL & PLATFORM
     r2c1, r2c2 = st.columns(2)
-    chan_opts = m["chans"]
+    chan_opts = m["channels"] # <--- ĐÃ FIX LỖI Ở ĐÂY (chans -> channels)
     chat_idx = chan_opts.index("Chat") if "Chat" in chan_opts else 0
     channel = r2c1.selectbox("Channel *", options=chan_opts, index=chat_idx)
     pl = r2c2.selectbox("Platform *", options=list(m["p_to_c"].keys()))

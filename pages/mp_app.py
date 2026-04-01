@@ -5,9 +5,10 @@ import uuid
 import random
 from sqlalchemy import create_engine
 
-# --- BẢO HIỂM SESSION STATE (Chống lỗi KeyError khi F5) ---
+# --- BẢO HIỂM SESSION STATE ---
 if 'sys_log' not in st.session_state:
     st.session_state['sys_log'] = []
+# Tự động sinh mã Ticket ID
 if 'tid' not in st.session_state:
     st.session_state['tid'] = f"MP-{dt.date.today().strftime('%d%m%y')}-{uuid.uuid4().hex[:4].upper()}"
 if 'logged_in' not in st.session_state or not st.session_state['logged_in']:
@@ -19,7 +20,7 @@ st.markdown("""
     <style>
         .block-container { padding-top: 1rem !important; max-width: 98% !important; }
         div[data-testid="stVerticalBlock"] > div { margin-bottom: -8px !important; }
-        .stSelectbox, .stTextInput, .stMultiSelect, .stDateInput { margin-bottom: 5px !important; }
+        .stSelectbox, .stTextInput, .stMultiSelect, .stDateInput, .stRadio { margin-bottom: 5px !important; }
         label { font-size: 13px !important; font-weight: 600 !important; color: #444; }
         
         /* Ép màu đỏ và in đậm trực tiếp cho chữ của ô tick Customer Complaint */
@@ -30,7 +31,7 @@ st.markdown("""
             text-transform: uppercase !important;
         }
         
-        /* (Tùy chọn) Đổi viền ô vuông thành đỏ nếu muốn giống giao diện cũ */
+        /* Đổi viền ô vuông thành đỏ */
         div[data-testid="stCheckbox"] div[role="checkbox"] {
             border-color: red !important;
         }
@@ -76,25 +77,24 @@ m = load_config()
 # 2. DÀN TRANG (7:3)
 col_form, col_spacer, col_log = st.columns([6.8, 0.2, 3])
 
+# ================= CỘT TRÁI (FORM NHẬP LIỆU) =================
 with col_form:
     st.markdown("##### MP Ticketing Form")
     
-    # ROW 1: CHANNEL & AGENT
+    # ROW 1: CHANNEL & ACTIVITY
     r1c1, r1c2 = st.columns(2)
     chan_opts = m["chans"]
     chat_idx = chan_opts.index("Chat") if "Chat" in chan_opts else 0
     channel = r1c1.selectbox("Channel *", options=chan_opts, index=chat_idx)
-    agent = r1c2.text_input("Agent", value=st.session_state.get('agent_name', 'Unknown'), disabled=True)
+    activity = r1c2.multiselect("Activity *", options=m["acts"], default=["INBOUND"])
 
-    # ROW 2: INQUIRY DATE & TIME
+    # ROW 2: INQUIRY DATE & TIME (Time đổi thành text_input để chỉnh sửa tự do như QLineEdit)
     r2c1, r2c2 = st.columns(2)
     inq_date = r2c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
-    inq_time = r2c2.time_input("Inquiry Time", value=dt.datetime.now().time())
+    inq_time = r2c2.text_input("Inquiry Time (HH:MM)", value=dt.datetime.now().strftime("%H:%M"))
 
-    # ROW 3: ACTIVITY & RATING
-    r3c1, r3c2 = st.columns(2)
-    activity = r3c1.multiselect("Activity *", options=m["acts"], default=["INBOUND"])
-    rating = r3c2.radio("Rating", ["1","2","3","4","5","No"], index=5, horizontal=True)
+    # ROW 3: RATING
+    rating = st.radio("Rating", ["1","2","3","4","5","No"], index=5, horizontal=True)
     
     # ROW 4: PLATFORM & CLIENT
     r4c1, r4c2 = st.columns(2)
@@ -123,7 +123,7 @@ with col_form:
     rs_parent = m["d_to_r"].get(rs_detail, "") if rs_detail else ""
     r8c1.text_input("Reason Parent", value=rs_parent, disabled=True)
     
-    # ROW 9: CUSTOMER COMPLAINT (Dùng checkbox gốc để thẳng hàng 100%)
+    # ROW 9: CUSTOMER COMPLAINT (CĂN GIỮA TUYỆT ĐỐI KHÔNG KHUNG)
     st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
     space_left, center_col, space_right = st.columns([1, 2, 1])
     with center_col:
@@ -131,7 +131,7 @@ with col_form:
 
     if rs_detail: st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'N/A')}")
     cmt = st.text_area("Comment / Description", height=60)
-    
+
     # NÚT SUBMIT
     if st.button("Submit Ticket", type="primary", use_container_width=True):
         if not uid or not rs_detail:
@@ -154,7 +154,7 @@ with col_form:
                 "brand": brand if is_brand_enable else "", 
                 "sku": sku if is_brand_enable else "",
                 "inquiry_date": inq_date.strftime("%d/%m/%Y"),
-                "inquiry_time": inq_time.strftime("%H:%M"),
+                "inquiry_time": inq_time,
                 "timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
             try:
@@ -188,13 +188,21 @@ with col_form:
                 
                 log_html = f"✅ **{st.session_state['tid']}** | {uid} <br> <span style='color:blue;'><i>- {cau_random}</i></span>"
                 st.session_state['sys_log'].insert(0, log_html)
+                # Sinh mã Ticket mới sau khi submit
                 st.session_state['tid'] = f"MP-{dt.date.today().strftime('%d%m%y')}-{uuid.uuid4().hex[:4].upper()}"
                 st.rerun()
             except Exception as e: st.error(f"Lỗi DB: {e}")
 
+# ================= CỘT PHẢI (HÀNH CHÍNH & LOG) =================
 with col_log:
+    st.markdown("##### System Info")
+    # Đưa Ticket ID và Agent sang bên này
+    st.text_input("Ticket ID", value=st.session_state['tid'], disabled=True)
+    st.text_input("Agent", value=st.session_state.get('agent_name', 'Unknown'), disabled=True)
+    
+    st.markdown("<hr style='margin:0.5em 0;'>", unsafe_allow_html=True)
     st.markdown("##### System Log")
-    log_box = st.container(height=620, border=True)
+    log_box = st.container(height=450, border=True)
     with log_box:
         if not st.session_state['sys_log']:
             st.caption("Chưa có ca làm việc mới.")

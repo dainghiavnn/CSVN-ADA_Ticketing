@@ -109,6 +109,15 @@ with col_form:
     rs_detail = r8c2.selectbox("Reason Detail *", options=sorted(m["d_to_r"].keys()), index=None, placeholder="🔍 Tìm lý do...")
     rs_parent = m["d_to_r"].get(rs_detail, "") if rs_detail else ""
     r8c1.text_input("Reason Parent", value=rs_parent, disabled=True)
+    
+    # ROW 9: CUSTOMER COMPLAINT (CHECKBOX VÀ CHỮ TRÊN 1 DÒNG)
+    comp_col1, comp_col2 = st.columns([0.05, 0.95])
+    with comp_col1:
+        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+        is_cp = st.checkbox("", label_visibility="collapsed")
+    with comp_col2:
+        st.markdown('<p class="complaint-text">THIS IS A CUSTOMER COMPLAINT ?</p>', unsafe_allow_html=True)
+    
     # ROW 7: OID & USER ID
     r7c1, r7c2 = st.columns(2)
     oid = r7c1.text_input("OID Reference")
@@ -118,13 +127,6 @@ with col_form:
     r2c1, r2c2 = st.columns(2)
     inq_date = r2c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
     inq_time = r2c2.time_input("Inquiry Time", value=dt.datetime.now().time())
-    # ROW 9: CUSTOMER COMPLAINT (CHECKBOX VÀ CHỮ TRÊN 1 DÒNG)
-    comp_col1, comp_col2 = st.columns([0.05, 0.95])
-    with comp_col1:
-        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
-        is_cp = st.checkbox("", label_visibility="collapsed")
-    with comp_col2:
-        st.markdown('<p class="complaint-text">THIS IS A CUSTOMER COMPLAINT ?</p>', unsafe_allow_html=True)
 
     if rs_detail: st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'N/A')}")
     cmt = st.text_area("Comment / Description", height=60)

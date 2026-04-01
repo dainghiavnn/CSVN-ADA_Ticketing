@@ -121,11 +121,6 @@ with col_form:
     br_opts = sorted(m["s_to_b"].get(store, [])) if is_brand_enable else []
     brand = r5c1.selectbox("Brand", options=br_opts, disabled=not is_brand_enable)
     sku = r5c2.text_input("Related SKU", disabled=not is_brand_enable, placeholder="Nhập SKU nếu có...")
-
-    # ROW 6: OID & USER ID
-    r6c1, r6c2 = st.columns(2)
-    oid = r6c1.text_input("OID Reference")
-    uid = r6c2.text_input("User ID *")
     
     # ROW 1: INQUIRY DATE & TIME
     r1c1, r1c2 = st.columns(2)
@@ -145,6 +140,13 @@ with col_form:
         is_cp = st.checkbox("THIS IS A CUSTOMER COMPLAINT ?")
 
     if rs_detail: st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'N/A')}")
+
+    # ROW 6: OID & USER ID
+    r6c1, r6c2 = st.columns(2)
+    oid = r6c1.text_input("OID Reference")
+    uid = r6c2.text_input("User ID *")
+
+    # ROW CHO COMMENT DESCRIPTION
     cmt = st.text_area("Comment / Description", height=60)
 
     # NÚT SUBMIT

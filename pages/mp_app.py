@@ -130,17 +130,12 @@ with col_form:
     rs_parent = m["d_to_r"].get(rs_detail, "") if rs_detail else ""
     r8c1.text_input("Reason Parent", value=rs_parent, disabled=True)
     
-    # ROW 9: CUSTOMER COMPLAINT (Căn giữa theo chiều dọc, khung bọc gọn)
-    with st.container(border=True):
-        comp_col1, comp_col2 = st.columns([0.06, 0.94], vertical_alignment="center")
-        with comp_col1:
-            is_cp = st.checkbox("", label_visibility="collapsed")
-        with comp_col2:
-            st.markdown('<p class="complaint-text">THIS IS A CUSTOMER COMPLAINT ?</p>', unsafe_allow_html=True)
+    # ROW 9: CUSTOMER COMPLAINT (Dùng checkbox gốc để thẳng hàng 100%)
+    st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
+    is_cp = st.checkbox("THIS IS A CUSTOMER COMPLAINT ?")
 
     if rs_detail: st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'N/A')}")
-    cmt = st.text_area("Comment / Description", height=60)
-
+    cmt = st.text_area("Comment / Description", height=60
     # NÚT SUBMIT
     if st.button("Submit Ticket", type="primary", use_container_width=True):
         if not uid or not rs_detail:

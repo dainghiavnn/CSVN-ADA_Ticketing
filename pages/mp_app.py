@@ -11,19 +11,19 @@ if 'sys_log' not in st.session_state:
 if 'tid' not in st.session_state:
     st.session_state['tid'] = f"MP-{dt.date.today().strftime('%d%m%y')}-{uuid.uuid4().hex[:4].upper()}"
 if 'logged_in' not in st.session_state or not st.session_state['logged_in']:
-    st.warning("Vui lòng đăng nhập lại.")
+    st.warning("Vui lòng đăng nhập lại tại trang chủ.")
     st.stop()
 
-# CSS FIX LAYOUT (Giãn cách hợp lý để không bị sập giao diện)
+# CSS FIX LAYOUT (Đảm bảo không bị sập và fit màn hình)
 st.markdown("""
     <style>
         .block-container { padding-top: 1rem !important; max-width: 98% !important; }
-        /* Khoảng cách giữa các dòng widget */
-        div[data-testid="stVerticalBlock"] > div { margin-bottom: -8px !important; }
-        /* Fix lỗi hiển thị cho các ô nhập liệu */
-        .stSelectbox, .stTextInput, .stMultiSelect { margin-bottom: 5px !important; }
-        /* Tối ưu hóa font chữ nhỏ hơn một chút để fit màn hình */
-        label { font-size: 14px !important; font-weight: 500 !important; }
+        /* Giảm khoảng cách giữa các dòng widget để fit 1 màn hình */
+        div[data-testid="stVerticalBlock"] > div { margin-bottom: -10px !important; }
+        /* Fix khoảng cách cho các ô nhập liệu */
+        .stSelectbox, .stTextInput, .stMultiSelect { margin-bottom: 8px !important; }
+        /* Font size label */
+        label { font-size: 13px !important; font-weight: 600 !important; color: #555; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -50,57 +50,64 @@ def load_config():
         "d_to_r": {r["REASON_DETAIL"]: r["REASON"] for _, r in df_tf.iterrows()},
         "d_to_e": {r["REASON_DETAIL"]: r["REASON_EXP"] for _, r in df_tf.iterrows()},
         "acts": sorted(df_act["ACTIVITY"].unique()) if not df_act.empty else ["INBOUND"],
-        "chans": sorted(df_act["CHANNEL"].unique()) if not df_act.empty else ["Chat"]
+        "chans": sorted(df_act["CHANNEL"].unique()) if not df_act.empty else ["Chat", "Call"]
     }
 
 m = load_config()
 
-# 2. DÀN TRANG 2 CỘT (7:3)
+# 2. DÀN TRANG (7:3)
 col_form, col_spacer, col_log = st.columns([6.8, 0.2, 3])
 
 with col_form:
     st.markdown("##### MP Ticketing Form")
     
-    # Row 1: Channel & Agent (Disabled)
+    # --- DÒNG 1: CHANNEL & AGENT ---
     r1c1, r1c2 = st.columns(2)
-    channel = r1c1.selectbox("Channel *", options=m["chans"])
+    # Tìm index của "Chat" để làm mặc định
+    chan_opts = m["chans"]
+    chat_idx = chan_opts.index("Chat") if "Chat" in chan_opts else 0
+    channel = r1c1.selectbox("Channel *", options=chan_opts, index=chat_idx)
     agent = r1c2.text_input("Agent", value=st.session_state.get('agent_name', 'Unknown'), disabled=True)
     
-    # Row 2: Activity & Rating
+    # --- DÒNG 2: ACTIVITY & RATING ---
     r2c1, r2c2 = st.columns(2)
     activity = r2c1.multiselect("Activity *", options=m["acts"], default=["INBOUND"])
     rating = r2c2.radio("Rating", ["1","2","3","4","5","No"], index=5, horizontal=True)
     
-    # Row 3: Platform & Client
+    # --- DÒNG 3: PLATFORM & CLIENT ---
     r3c1, r3c2 = st.columns(2)
     pl = r3c1.selectbox("Platform *", options=list(m["p_to_c"].keys()))
     cl = r3c2.selectbox("Client *", options=sorted(list(m["p_to_c"].get(pl, []))))
     
-    # Row 4: Store & OID
+    # --- DÒNG 4: STORE & COMPLAINT ---
     r4c1, r4c2 = st.columns(2)
     st_opts = sorted(list(m["pc_to_s"].get((pl, cl), set())))
     store = r4c1.selectbox("Store *", options=st_opts)
-    oid = r4c2.text_input("OID Reference")
+    with r4c2:
+        st.markdown("<div style='margin-top:25px;'></div>", unsafe_allow_html=True)
+        is_cp = st.checkbox("CUSTOMER COMPLAINT?", help="Tích vào nếu đây là khiếu nại")
     
-    # Row 5: User ID & Reason Detail (Searchable)
+    # --- DÒNG 5: OID REFERENCE & USER ID (GOM CHUNG) ---
     r5c1, r5c2 = st.columns(2)
-    uid = r5c1.text_input("User ID *")
-    rs_detail = r5c2.selectbox("Reason Detail *", options=sorted(m["d_to_r"].keys()), index=None, placeholder="🔍 Tìm lý do...")
+    oid = r5c1.text_input("OID Reference")
+    uid = r5c2.text_input("User ID *")
     
-    # Row 6: Parent & Checkbox
+    # --- DÒNG 6: REASON DETAIL & REASON PARENT (GOM CHUNG) ---
     r6c1, r6c2 = st.columns(2)
+    rs_detail = r6c1.selectbox("Reason Detail *", options=sorted(m["d_to_r"].keys()), index=None, placeholder="🔍 Tìm lý do...")
     rs_parent = m["d_to_r"].get(rs_detail, "") if rs_detail else ""
-    r6c1.text_input("Reason Parent", value=rs_parent, disabled=True)
-    with r6c2:
-        st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
-        is_cp = st.checkbox("CUSTOMER COMPLAINT?")
+    r6c2.text_input("Reason Parent", value=rs_parent, disabled=True)
 
+    # Hiển thị Guide nếu có
     if rs_detail: st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'N/A')}")
-    cmt = st.text_area("Comment", height=65)
+    
+    # --- DÒNG 7: COMMENT ---
+    cmt = st.text_area("Comment / Description", height=60)
 
+    # NÚT SUBMIT
     if st.button("Submit Ticket", type="primary", use_container_width=True):
         if not uid or not rs_detail:
-            st.warning("⚠️ Điền thiếu User ID hoặc Lý do.")
+            st.warning("⚠️ Vui lòng điền User ID và Lý do.")
         else:
             row = {
                 "ticket_id": st.session_state['tid'], "agent": st.session_state['agent_name'],
@@ -110,10 +117,11 @@ with col_form:
                 "comment": cmt, "timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
             try:
-                pg = st.secrets["postgres"]
-                engine = create_engine(f"postgresql://{pg['user']}:{pg['password']}@{pg['host']}:{pg['port']}/{pg['database']}")
+                pg_cfg = st.secrets["postgres"]
+                engine = create_engine(f"postgresql://{pg_cfg['user']}:{pg_cfg['password']}@{pg_cfg['host']}:{pg_cfg['port']}/{pg_cfg['database']}")
                 pd.DataFrame([row]).to_sql("master_logs", engine, if_exists='append', index=False)
                 
+                # Cập nhật log và reset ID
                 st.session_state['sys_log'].insert(0, f"✅ {st.session_state['tid']} | {uid}")
                 st.session_state['tid'] = f"MP-{dt.date.today().strftime('%d%m%y')}-{uuid.uuid4().hex[:4].upper()}"
                 st.rerun()
@@ -121,12 +129,11 @@ with col_form:
 
 with col_log:
     st.markdown("##### System Log")
-    # Container log có thanh cuộn, fix chiều cao để khớp với form
-    log_box = st.container(height=600, border=True)
+    log_box = st.container(height=620, border=True)
     with log_box:
         if not st.session_state['sys_log']:
-            st.caption("Chưa có log mới.")
+            st.caption("Chưa có ca làm việc mới.")
         else:
-            for l in st.session_state['sys_log']:
-                st.write(l)
-                st.markdown("<hr style='margin:0.3em 0;'>", unsafe_allow_html=True)
+            for item in st.session_state['sys_log']:
+                st.write(item)
+                st.markdown("<hr style='margin:0.2em 0; opacity:0.3;'>", unsafe_allow_html=True)

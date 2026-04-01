@@ -68,12 +68,16 @@ def load_config():
     df_tf = to_df("ticket_field")
     df_act = to_df("activity")
     
+    # BỘ LỌC THÉP: Loại bỏ hoàn toàn chuỗi rỗng "", chữ "nan" (do pandas tự sinh), và "None"
+    valid_acts = [x for x in df_act["ACTIVITY"].unique() if str(x).strip() not in ["", "nan", "None"]] if not df_act.empty else ["INBOUND", "OUTBOUND"]
+    valid_chans = [x for x in df_act["CHANNEL"].unique() if str(x).strip() not in ["", "nan", "None"]] if not df_act.empty else ["Chat", "Call"]
+    
     return {
         "p_to_c": p_to_c, "pc_to_s": pc_to_s, "s_to_b": s_to_b,
         "d_to_r": {r["REASON_DETAIL"]: r["REASON"] for _, r in df_tf.iterrows()},
         "d_to_e": {r["REASON_DETAIL"]: r["REASON_EXP"] for _, r in df_tf.iterrows()},
-        "acts": sorted(df_act["ACTIVITY"].unique()) if not df_act.empty else ["INBOUND", "OUTBOUND"],
-        "chans": sorted(df_act["CHANNEL"].unique()) if not df_act.empty else ["Chat", "Call"]
+        "acts": sorted(valid_acts),
+        "chans": sorted(valid_chans)
     }
 
 m = load_config()
@@ -84,11 +88,6 @@ col_form, col_spacer, col_log = st.columns([6.8, 0.2, 3])
 # ================= CỘT TRÁI (FORM NHẬP LIỆU) =================
 with col_form:
     st.markdown("##### MP Ticketing Form")
-    
-    # ROW 1: INQUIRY DATE & TIME
-    r1c1, r1c2 = st.columns(2)
-    inq_date = r1c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
-    inq_time = r1c2.text_input("Inquiry Time (HH:MM)", value=dt.datetime.now().strftime("%H:%M"))
 
     # ROW 2: CHANNEL & PLATFORM
     r2c1, r2c2 = st.columns(2)
@@ -97,7 +96,7 @@ with col_form:
     channel = r2c1.selectbox("Channel *", options=chan_opts, index=chat_idx)
     pl = r2c2.selectbox("Platform *", options=list(m["p_to_c"].keys()))
 
-    # ROW 3: ACTIVITY & RATING
+    # ROW 3: ACTIVITY & RATING (2 Ô RADIO TRÊN CÙNG 1 DÒNG)
     r3c1, r3c2 = st.columns(2)
     acts_opts = m["acts"]
     inb_idx = acts_opts.index("INBOUND") if "INBOUND" in acts_opts else 0
@@ -122,13 +121,18 @@ with col_form:
     oid = r6c1.text_input("OID Reference")
     uid = r6c2.text_input("User ID *")
     
+    # ROW 1: INQUIRY DATE & TIME
+    r1c1, r1c2 = st.columns(2)
+    inq_date = r1c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
+    inq_time = r1c2.text_input("Inquiry Time (HH:MM)", value=dt.datetime.now().strftime("%H:%M"))
+    
     # ROW 7: REASON PARENT (TRÁI) & DETAIL (PHẢI)
     r7c1, r7c2 = st.columns(2)
     rs_detail = r7c2.selectbox("Reason Detail *", options=sorted(m["d_to_r"].keys()), index=None, placeholder="🔍 Tìm lý do...")
     rs_parent = m["d_to_r"].get(rs_detail, "") if rs_detail else ""
     r7c1.text_input("Reason Parent", value=rs_parent, disabled=True)
     
-    # ROW 8: CUSTOMER COMPLAINT
+    # ROW 8: CUSTOMER COMPLAINT (CĂN GIỮA TUYỆT ĐỐI)
     st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
     space_left, center_col, space_right = st.columns([1, 2, 1])
     with center_col:

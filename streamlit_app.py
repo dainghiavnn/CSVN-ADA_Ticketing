@@ -8,7 +8,7 @@ from sqlalchemy import create_engine, text
 import gspread
 
 # ==========================================
-# CẤU HÌNH TRANG
+# CẤU HÌNH TRANG (Chỉ hiển thị title trên tab trình duyệt)
 # ==========================================
 st.set_page_config(layout="wide", page_title="ADAHUB Unified v24.28 (Web)")
 
@@ -93,7 +93,7 @@ def get_escalation_by_oid(oid):
 # ==========================================
 # GIAO DIỆN CHÍNH (UI)
 # ==========================================
-st.title("Unified Hub v24.28")
+# Đã xóa st.title() ở đây để tiết kiệm không gian
 
 tab1, tab2 = st.tabs(["Standard Master (1)", "Escalation Hub (2)"])
 
@@ -101,10 +101,9 @@ tab1, tab2 = st.tabs(["Standard Master (1)", "Escalation Hub (2)"])
 # TAB 1: STANDARD MASTER
 # ------------------------------------------
 with tab1:
-    # Chia form 70% bên trái, log 30% bên phải
     col_form, col_spacer, col_log = st.columns([7, 0.5, 3])
     
-    # --- CỘT TRÁI: MASTER LOG ENTRY (Dàn 2 cột đều nhau) ---
+    # --- CỘT TRÁI: MASTER LOG ENTRY ---
     with col_form:
         st.subheader("Master Log Entry")
         
@@ -124,12 +123,10 @@ with tab1:
         inq_date = r3_c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
         inq_time = r3_c2.time_input("Inquiry Time", value=dt.datetime.now().time())
         
-        # Checkbox Khiếu nại (Trải dài 1 dòng riêng cho nổi bật)
+        # Checkbox Khiếu nại
         is_complaint = st.checkbox("THIS IS A CUSTOMER COMPLAINT ?", value=False)
         if is_complaint: 
             st.error("🚨 Đã đánh dấu là Khiếu nại!")
-
-        st.divider()
         
         # Row 4: Platform & Client
         r4_c1, r4_c2 = st.columns(2)
@@ -145,8 +142,6 @@ with tab1:
         br_options = sorted(m["s_to_b"].get(store, [])) if is_enable else []
         brand = r5_c2.selectbox("Brand", options=br_options, disabled=not is_enable)
         
-        st.divider()
-        
         # Row 6: SKU & OID
         r6_c1, r6_c2 = st.columns(2)
         sku = r6_c1.text_input("Related SKU", disabled=not is_enable)
@@ -156,23 +151,30 @@ with tab1:
         r7_c1, r7_c2 = st.columns(2)
         uid = r7_c1.text_input("User ID (bắt buộc) *")
         dt_options = sorted(list(m["d_to_r"].keys()))
-        rs_detail = r7_c2.selectbox("Reason Details (bắt buộc) *", options=dt_options)
+        
+        rs_detail = r7_c2.selectbox(
+            "Reason Details (bắt buộc) *", 
+            options=dt_options,
+            index=None, 
+            placeholder="🔍 Gõ từ khóa để tìm kiếm..."
+        )
         
         # Row 8: Reason Parent & Guide Info
         r8_c1, r8_c2 = st.columns(2)
-        rs_parent = m["d_to_r"].get(rs_detail, "")
+        rs_parent = m["d_to_r"].get(rs_detail, "") if rs_detail else ""
         r8_c1.text_input("Reason Parent", value=rs_parent, disabled=True)
         with r8_c2:
-            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True) # Spacer để box Info thẳng hàng với input bên trái
-            st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'Waiting Selection.')}")
+            st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True) 
+            guide_text = m['d_to_e'].get(rs_detail, 'Waiting Selection.') if rs_detail else 'Vui lòng chọn Reason Detail để xem hướng dẫn.'
+            st.info(f"**Guide:** {guide_text}")
         
-        # Dòng cuối: Comment trải dài hết khung
+        # Dòng cuối: Comment
         cmt = st.text_area("Comment / Description", height=68)
 
         # Nút Bấm Submit
         if st.button("Submit Data", type="primary", use_container_width=True):
-            if not uid.strip() or not rs_detail.strip():
-                st.warning("Reason Details & User ID là bắt buộc.")
+            if not uid.strip() or not rs_detail:
+                st.warning("⚠️ Vui lòng nhập User ID và tìm chọn Reason Details.")
             else:
                 vui_ve = [
                     "Em tuyệt dzời lắm 💞", "Ờ mây dzing! Gút chóp em! 😍",
@@ -205,7 +207,7 @@ with tab1:
     # --- CỘT PHẢI: SYSTEM LOG ---
     with col_log:
         st.subheader("System Log")
-        log_container = st.container(height=800, border=True) # Kéo dài height một chút để vừa vặn với form mới
+        log_container = st.container(height=800, border=True)
         with log_container:
             if not st.session_state['sys_log']:
                 st.caption("Chưa có dữ liệu log mới trong phiên làm việc này.")

@@ -94,10 +94,21 @@ with col_form:
     
     # --- DÒNG 6: REASON DETAIL & REASON PARENT (GOM CHUNG) ---
     r6c1, r6c2 = st.columns(2)
-    rs_detail = r6c1.selectbox("Reason Detail *", options=sorted(m["d_to_r"].keys()), index=None, placeholder="🔍 Tìm lý do...")
+    
+    # B1: Chọn Parent trước
+    r6c1, r6c2 = st.columns(2)
+    
+    # Chúng ta khai báo ô Detail trước để lấy giá trị, nhưng hiển thị ở r6c2 (bên phải)
+    rs_detail = r6c2.selectbox(
+        "Reason Detail *", 
+        options=sorted(m["d_to_r"].keys()), 
+        index=None, 
+        placeholder="🔍 Tìm lý do..."
+    )
+    
+    # Ô Parent hiển thị ở r6c1 (bên trái) và tự nhảy theo Detail
     rs_parent = m["d_to_r"].get(rs_detail, "") if rs_detail else ""
-    r6c2.text_input("Reason Parent", value=rs_parent, disabled=True)
-
+    r6c1.text_input("Reason Parent", value=rs_parent, disabled=True)
     # Hiển thị Guide nếu có
     if rs_detail: st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'N/A')}")
     

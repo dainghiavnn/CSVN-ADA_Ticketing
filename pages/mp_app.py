@@ -5,12 +5,16 @@ import uuid
 import random
 from sqlalchemy import create_engine
 
+# Lấy tên Agent hiện tại và trích xuất chữ cái đầu tiên (Viết hoa)
+current_agent_name = st.session_state.get('agent_name', 'Unknown')
+agent_char = current_agent_name[0].upper() if current_agent_name else 'U'
+
 # --- BẢO HIỂM SESSION STATE ---
 if 'sys_log' not in st.session_state:
     st.session_state['sys_log'] = []
-# Tự động sinh mã Ticket ID
+# Tự động sinh mã Ticket ID (MP - Ngày tháng - Ký tự Agent - 6 mã Hex)
 if 'tid' not in st.session_state:
-    st.session_state['tid'] = f"MP-{dt.date.today().strftime('%d%m%y')}-{uuid.uuid4().hex[:4].upper()}"
+    st.session_state['tid'] = f"MP-{dt.date.today().strftime('%d%m%y')}-{agent_char}-{uuid.uuid4().hex[:6].upper()}"
 if 'logged_in' not in st.session_state or not st.session_state['logged_in']:
     st.warning("Vui lòng đăng nhập lại tại trang chủ.")
     st.stop()
@@ -80,6 +84,11 @@ col_form, col_spacer, col_log = st.columns([6.8, 0.2, 3])
 # ================= CỘT TRÁI (FORM NHẬP LIỆU) =================
 with col_form:
     st.markdown("##### MP Ticketing Form")
+    
+    # ROW 1: INQUIRY DATE & TIME
+    r1c1, r1c2 = st.columns(2)
+    inq_date = r1c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
+    inq_time = r1c2.text_input("Inquiry Time (HH:MM)", value=dt.datetime.now().strftime("%H:%M"))
 
     # ROW 2: CHANNEL & PLATFORM
     r2c1, r2c2 = st.columns(2)
@@ -88,7 +97,7 @@ with col_form:
     channel = r2c1.selectbox("Channel *", options=chan_opts, index=chat_idx)
     pl = r2c2.selectbox("Platform *", options=list(m["p_to_c"].keys()))
 
-    # ROW 3: ACTIVITY & RATING (2 Ô RADIO TRÊN CÙNG 1 DÒNG)
+    # ROW 3: ACTIVITY & RATING
     r3c1, r3c2 = st.columns(2)
     acts_opts = m["acts"]
     inb_idx = acts_opts.index("INBOUND") if "INBOUND" in acts_opts else 0
@@ -119,12 +128,7 @@ with col_form:
     rs_parent = m["d_to_r"].get(rs_detail, "") if rs_detail else ""
     r7c1.text_input("Reason Parent", value=rs_parent, disabled=True)
     
-    # ROW 1: INQUIRY DATE & TIME
-    r1c1, r1c2 = st.columns(2)
-    inq_date = r1c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
-    inq_time = r1c2.text_input("Inquiry Time (HH:MM)", value=dt.datetime.now().strftime("%H:%M"))
-    
-    # ROW 8: CUSTOMER COMPLAINT (CĂN GIỮA TUYỆT ĐỐI)
+    # ROW 8: CUSTOMER COMPLAINT
     st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
     space_left, center_col, space_right = st.columns([1, 2, 1])
     with center_col:
@@ -140,13 +144,13 @@ with col_form:
         else:
             row = {
                 "ticket_id": st.session_state['tid'], 
-                "agent": st.session_state['agent_name'],
-                "activity": activity, # Đã update lấy text trực tiếp từ radio
+                "agent": current_agent_name,
+                "activity": activity, 
                 "channel": channel, 
                 "platform": pl, 
                 "client": cl, 
                 "store": store, 
-                "rating": rating, # Bổ sung lưu rating vào DB
+                "rating": rating,
                 "oid": oid, 
                 "user_id": uid, 
                 "reason_detail": rs_detail, 
@@ -190,7 +194,9 @@ with col_form:
                 
                 log_html = f"✅ **{st.session_state['tid']}** | {uid} <br> <span style='color:blue;'><i>- {cau_random}</i></span>"
                 st.session_state['sys_log'].insert(0, log_html)
-                st.session_state['tid'] = f"MP-{dt.date.today().strftime('%d%m%y')}-{uuid.uuid4().hex[:4].upper()}"
+                
+                # Sinh mã Ticket mới kèm Ký tự Agent
+                st.session_state['tid'] = f"MP-{dt.date.today().strftime('%d%m%y')}-{agent_char}-{uuid.uuid4().hex[:6].upper()}"
                 st.rerun()
             except Exception as e: st.error(f"Lỗi DB: {e}")
 
@@ -198,7 +204,7 @@ with col_form:
 with col_log:
     st.markdown("##### System Info")
     st.text_input("Ticket ID", value=st.session_state['tid'], disabled=True)
-    st.text_input("Agent", value=st.session_state.get('agent_name', 'Unknown'), disabled=True)
+    st.text_input("Agent", value=current_agent_name, disabled=True)
     
     st.markdown("<hr style='margin:0.5em 0;'>", unsafe_allow_html=True)
     st.markdown("##### System Log")

@@ -125,11 +125,6 @@ col_form, col_spacer, col_log = st.columns([6.8, 0.2, 3])
 # ================= CỘT TRÁI (FORM NHẬP LIỆU) =================
 with col_form:
     st.markdown("##### Master Log Entry")
-    
-    # ROW 1: INQUIRY DATE & TIME
-    r1c1, r1c2 = st.columns(2)
-    inq_date = r1c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
-    inq_time = r1c2.text_input("Inquiry Time (VD: 1830 hoặc 18:30)", value=dt.datetime.now().strftime("%H:%M"))
 
     # ROW 2: CHANNEL & PLATFORM
     r2c1, r2c2 = st.columns(2)
@@ -168,6 +163,7 @@ with col_form:
     rs_detail = r7c2.selectbox("Reason Detail *", options=sorted(m["d_to_r"].keys()), index=None, placeholder="🔍 Tìm lý do...")
     rs_parent = m["d_to_r"].get(rs_detail, "") if rs_detail else ""
     r7c1.text_input("Reason Parent", value=rs_parent, disabled=True)
+    if rs_detail: st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'N/A')}")
     
     # ROW 8: CUSTOMER COMPLAINT (CĂN GIỮA TUYỆT ĐỐI)
     st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
@@ -175,7 +171,12 @@ with col_form:
     with center_col:
         is_cp = st.checkbox("THIS IS A CUSTOMER COMPLAINT ?")
 
-    if rs_detail: st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'N/A')}")
+    # ROW 1: INQUIRY DATE & TIME
+    r1c1, r1c2 = st.columns(2)
+    inq_date = r1c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
+    inq_time = r1c2.text_input("Inquiry Time (VD: 1830 hoặc 18:30)", value=dt.datetime.now().strftime("%H:%M"))
+
+
     cmt = st.text_area("Comment / Description", height=60)
 
     # NÚT SUBMIT

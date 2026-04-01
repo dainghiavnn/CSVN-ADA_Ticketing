@@ -125,11 +125,13 @@ with col_form:
     
     # ROW 9: CUSTOMER COMPLAINT (Dùng checkbox gốc để thẳng hàng 100%)
     st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-    is_cp = st.checkbox("THIS IS A CUSTOMER COMPLAINT ?")
+    space_left, center_col, space_right = st.columns([1, 2, 1])
+    with center_col:
+        is_cp = st.checkbox("THIS IS A CUSTOMER COMPLAINT ?")
 
     if rs_detail: st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'N/A')}")
     cmt = st.text_area("Comment / Description", height=60)
-
+    
     # NÚT SUBMIT
     if st.button("Submit Ticket", type="primary", use_container_width=True):
         if not uid or not rs_detail:

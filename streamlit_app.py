@@ -7,7 +7,9 @@ import random
 from sqlalchemy import create_engine, text
 import gspread
 
-# ===== CONFIGURATION & HYBRID SETUP =====
+# ==========================================
+# CẤU HÌNH TRANG (Bắt buộc để full màn hình)
+# ==========================================
 st.set_page_config(layout="wide", page_title="ADAHUB Unified v24.28 (Web)")
 
 BRAND_ENABLED_STORES = {"Bách Hóa Unilever Official Store", "Unilever Premium Beauty", "KAO Official Store"}
@@ -67,6 +69,7 @@ def load_data_models():
         "all_parents": all_parents, "activities": act_list, "channels": channels
     }
 
+# Load dữ liệu config vào biến m
 m = load_data_models()
 
 # ==========================================
@@ -94,7 +97,7 @@ def get_escalation_by_oid(oid):
 # ==========================================
 # GIAO DIỆN CHÍNH (UI)
 # ==========================================
-st.title("ADAHUB Unified v24.28 (Web)")
+st.title("Unified Hub v24.28")
 
 tab1, tab2 = st.tabs(["Standard Master (1)", "Escalation Hub (2)"])
 
@@ -102,102 +105,117 @@ tab1, tab2 = st.tabs(["Standard Master (1)", "Escalation Hub (2)"])
 # TAB 1: STANDARD MASTER
 # ------------------------------------------
 with tab1:
-    st.subheader("Master Log Entry")
+    # Chia trang thành 2 cột: Cột Form (chiếm 7 phần) và Cột Log (chiếm 3 phần)
+    col_form, col_spacer, col_log = st.columns([7, 0.5, 3])
     
-    # Block 1: Thông tin chung
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        tid = st.text_input("Ticket #", value=st.session_state['tid'], disabled=True)
-        channel_index = m["channels"].index("Chat") if "Chat" in m["channels"] else 0
-        channel = st.selectbox("Channel *", options=m["channels"], index=channel_index)
-    with c2:
-        agent = st.selectbox("Agent *", options=m["agents"])
-        rating = st.radio("Rating (Reviews)", options=["1","2","3","4","5","No"], index=5, horizontal=True)
-    with c3:
-        activity = st.multiselect("Activity Type", options=m["activities"], default=["INBOUND"])
-        inq_date = st.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
-    with c4:
-        inq_time = st.time_input("Inquiry Time", value=dt.datetime.now().time())
-        st.markdown("<br>", unsafe_allow_html=True) # Spacer
-        is_complaint = st.checkbox("THIS IS A CUSTOMER COMPLAINT ?", value=False)
-        if is_complaint: st.error("🚨 Đã đánh dấu là Khiếu nại!")
+    # --- CỘT TRÁI: MASTER LOG ENTRY ---
+    with col_form:
+        st.subheader("Master Log Entry")
+        
+        # Block 1: Thông tin chung
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            channel_index = m["channels"].index("Chat") if "Chat" in m["channels"] else 0
+            channel = st.selectbox("Channel *", options=m["channels"], index=channel_index)
+            inq_time = st.time_input("Inquiry Time", value=dt.datetime.now().time())
+        with c2:
+            agent = st.selectbox("Agent *", options=m["agents"])
+            rating = st.radio("Rating (Reviews)", options=["1","2","3","4","5","No"], index=5, horizontal=True)
+        with c3:
+            activity = st.multiselect("Activity Type", options=m["activities"], default=["INBOUND"])
+        with c4:
+            inq_date = st.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
+            st.markdown("<br>", unsafe_allow_html=True) # Spacer cho cân đối
+            is_complaint = st.checkbox("THIS IS A CUSTOMER COMPLAINT ?", value=False)
+            if is_complaint: 
+                st.error("🚨 Đã đánh dấu là Khiếu nại!")
 
-    st.markdown("---")
-    
-    # Block 2: Logic Sync (Platform -> Client -> Store -> Brand)
-    c_pl, c_cl, c_st, c_br = st.columns(4)
-    
-    pl = c_pl.selectbox("Platform *", options=list(m["p_to_c"].keys()))
-    
-    cl_options = sorted(list(m["p_to_c"].get(pl, [])))
-    cl = c_cl.selectbox("Client *", options=cl_options)
-    
-    st_options = sorted(list(m["pc_to_s"].get((pl, cl), set())))
-    store = c_st.selectbox("Store *", options=st_options)
-    
-    is_enable = store in BRAND_ENABLED_STORES
-    br_options = sorted(m["s_to_b"].get(store, [])) if is_enable else []
-    brand = c_br.selectbox("Brand", options=br_options, disabled=not is_enable)
-    
-    # Block 3: Details & OID
-    c_sk, c_oid, c_uid, c_rs = st.columns(4)
-    sku = c_sk.text_input("Related SKU", disabled=not is_enable)
-    oid = c_oid.text_input("OID")
-    uid = c_uid.text_input("User ID *")
-    
-    # Logic Sync: Reason Details -> Reason Parent
-    dt_options = sorted(list(m["d_to_r"].keys()))
-    rs_detail = c_rs.selectbox("Reason Details *", options=dt_options)
-    rs_parent = m["d_to_r"].get(rs_detail, "")
-    
-    # Hiển thị Guideline
-    st.info(f"**Contact Reason:** {rs_parent} &nbsp;|&nbsp; **Guide:** {m['d_to_e'].get(rs_detail, 'Waiting Selection.')}")
-    
-    cmt = st.text_area("Comment / Description", height=68)
+        st.markdown("---")
+        
+        # Block 2: Logic Sync (Platform -> Client -> Store -> Brand)
+        c_pl, c_cl, c_st, c_br = st.columns(4)
+        pl = c_pl.selectbox("Platform *", options=list(m["p_to_c"].keys()))
+        
+        cl_options = sorted(list(m["p_to_c"].get(pl, [])))
+        cl = c_cl.selectbox("Client *", options=cl_options)
+        
+        st_options = sorted(list(m["pc_to_s"].get((pl, cl), set())))
+        store = c_st.selectbox("Store *", options=st_options)
+        
+        is_enable = store in BRAND_ENABLED_STORES
+        br_options = sorted(m["s_to_b"].get(store, [])) if is_enable else []
+        brand = c_br.selectbox("Brand", options=br_options, disabled=not is_enable)
+        
+        # Block 3: Details & OID
+        c_sk, c_oid, c_uid = st.columns([1, 1, 2])
+        sku = c_sk.text_input("Related SKU", disabled=not is_enable)
+        oid = c_oid.text_input("OID Reference")
+        uid = c_uid.text_input("User ID (bắt buộc) *")
+        
+        # Block 4: Reason
+        c_rs, c_rp = st.columns(2)
+        dt_options = sorted(list(m["d_to_r"].keys()))
+        rs_detail = c_rs.selectbox("Reason Details (bắt buộc) *", options=dt_options)
+        rs_parent = m["d_to_r"].get(rs_detail, "")
+        c_rp.text_input("Reason Parent", value=rs_parent, disabled=True)
+        
+        # Hiển thị Guideline
+        st.info(f"**Contact Reason:** {rs_parent} &nbsp;|&nbsp; **Guide:** {m['d_to_e'].get(rs_detail, 'Waiting Selection.')}")
+        
+        cmt = st.text_area("Comment / Description", height=68)
 
-    # Nút Bấm Submit & Xử lý Database
-    if st.button("Submit Data", type="primary", use_container_width=True):
-        if not uid.strip() or not rs_detail.strip():
-            st.warning("Reason Details & User ID là bắt buộc.")
-        else:
-            vui_ve = [
-                "Em tuyệt dzời lắm 💞", "Ờ mây dzing! Gút chóp em! 😍",
-                "Một chíu nữa thôi là clear xong cái shop rồi 😛",
-                "Cứu Thuận Phát/ Reckitt/ Nutifood/ Ensure/ Curel đi mấy níííííííí 😥",
-                "Tất cả là do Daniel 🤩", "Chị Uyên đẹp gái ha mấy đứa!😙",
-                "Mừi đỉm, khum lói nhèo ⭐⭐⭐", "Đừng có lịm ngang nha ní 😱"
-            ]
-            cau_random = random.choice(vui_ve)
-            
-            # Map dữ liệu để đưa vào Postgres
-            row_data = {
-                "ticket_id": tid, "agent": agent, "activity": ", ".join(activity),
-                "channel": channel, "platform": pl, "client": cl, "store": store,
-                "rating": rating, "reason_parent": rs_parent, "reason_detail": rs_detail,
-                "is_complaint": "Yes" if is_complaint else "No", "brand": brand if is_enable else "",
-                "sku": sku if is_enable else "", "oid": oid, "user_id": uid, "comment": cmt,
-                "inquiry_date": inq_date.strftime("%d/%m/%Y"), "inquiry_time": inq_time.strftime("%H:%M"),
-                "timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-            
-            try:
-                save_to_postgres(row_data, "master_logs")
+        # Nút Bấm Submit & Xử lý Postgres
+        if st.button("Submit Data", type="primary", use_container_width=True):
+            if not uid.strip() or not rs_detail.strip():
+                st.warning("Reason Details & User ID là bắt buộc.")
+            else:
+                vui_ve = [
+                    "Em tuyệt dzời lắm 💞", "Ờ mây dzing! Gút chóp em! 😍",
+                    "Một chíu nữa thôi là clear xong cái shop rồi 😛",
+                    "Cứu Thuận Phát/ Reckitt/ Nutifood/ Ensure/ Curel đi mấy níííííííí 😥",
+                    "Tất cả là do Daniel 🤩", "Chị Uyên đẹp gái ha mấy đứa!😙",
+                    "Mừi đỉm, khum lói nhèo ⭐⭐⭐", "Đừng có lịm ngang nha ní 😱"
+                ]
+                cau_random = random.choice(vui_ve)
                 
-                # Cập nhật System Log nội bộ UI
-                log_html = f"✅ Logged: {tid} | User ID: **{uid}** <br> <span style='color:blue'><i>- {cau_random}</i></span>"
-                st.session_state['sys_log'].insert(0, log_html)
+                # Map dữ liệu để đưa vào Postgres
+                row_data = {
+                    "ticket_id": st.session_state['tid'], "agent": agent, "activity": ", ".join(activity),
+                    "channel": channel, "platform": pl, "client": cl, "store": store,
+                    "rating": rating, "reason_parent": rs_parent, "reason_detail": rs_detail,
+                    "is_complaint": "Yes" if is_complaint else "No", "brand": brand if is_enable else "",
+                    "sku": sku if is_enable else "", "oid": oid, "user_id": uid, "comment": cmt,
+                    "inquiry_date": inq_date.strftime("%d/%m/%Y"), "inquiry_time": inq_time.strftime("%H:%M"),
+                    "timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
                 
-                # Cấp mã Ticket mới và refresh
-                st.session_state['tid'] = f"CSVN-{dt.date.today().strftime('%d%m%y')}-{uuid.uuid4().hex[:6].upper()}"
-                st.rerun() 
-            except Exception as e:
-                st.error(f"Lỗi hệ thống khi lưu Database: {e}")
-    
-    # Vùng hiển thị System Log
-    st.markdown("### System Log")
-    for log in st.session_state['sys_log'][:3]:
-        st.markdown(log, unsafe_allow_html=True)
-        st.divider()
+                try:
+                    # LƯU VÀO DATABASE
+                    save_to_postgres(row_data, "master_logs")
+                    
+                    # Cập nhật System Log nội bộ UI
+                    log_html = f"✅ Logged: {st.session_state['tid']} | User ID: **{uid}** <br> <span style='color:#60A5FA'><i>- {cau_random}</i></span>"
+                    st.session_state['sys_log'].insert(0, log_html)
+                    
+                    # Cấp mã Ticket mới và refresh
+                    st.session_state['tid'] = f"CSVN-{dt.date.today().strftime('%d%m%y')}-{uuid.uuid4().hex[:6].upper()}"
+                    st.rerun() 
+                except Exception as e:
+                    st.error(f"Lỗi hệ thống khi lưu Database: {e}")
+
+    # --- CỘT PHẢI: SYSTEM LOG ---
+    with col_log:
+        st.subheader("System Log")
+        
+        # Dùng container có thanh cuộn để log không làm tràn trang xuống quá sâu
+        log_container = st.container(height=680, border=True)
+        with log_container:
+            if not st.session_state['sys_log']:
+                st.caption("Chưa có dữ liệu log mới trong phiên làm việc này.")
+            else:
+                for log in st.session_state['sys_log']:
+                    st.markdown(log, unsafe_allow_html=True)
+                    st.divider()
 
 
 # ------------------------------------------

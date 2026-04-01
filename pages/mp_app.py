@@ -119,14 +119,17 @@ with col_form:
     rs_detail = r8c2.selectbox("Reason Detail *", options=sorted(m["d_to_r"].keys()), index=None, placeholder="🔍 Tìm lý do...")
     rs_parent = m["d_to_r"].get(rs_detail, "") if rs_detail else ""
     r8c1.text_input("Reason Parent", value=rs_parent, disabled=True)
-    
-    # ROW 9: CUSTOMER COMPLAINT
+
+    # ROW 9: CUSTOMER COMPLAINT (Căn giữa theo chiều dọc, khung bọc gọn)
     with st.container(border=True):
-        comp_col1, comp_col2 = st.columns([0.1, 0.9], vertical_alignment="center")
+        comp_col1, comp_col2 = st.columns([0.06, 0.94], vertical_alignment="center")
         with comp_col1:
             is_cp = st.checkbox("", label_visibility="collapsed")
         with comp_col2:
             st.markdown('<p class="complaint-text">THIS IS A CUSTOMER COMPLAINT ?</p>', unsafe_allow_html=True)
+
+    if rs_detail: st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'N/A')}")
+    cmt = st.text_area("Comment / Description", height=60)
 
     # Hiển thị Guide và Comment (Đã xóa bản sao bị trùng)
     if rs_detail: st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'N/A')}")

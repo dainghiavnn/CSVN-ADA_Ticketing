@@ -68,7 +68,7 @@ def load_config():
         "p_to_c": p_to_c, "pc_to_s": pc_to_s, "s_to_b": s_to_b,
         "d_to_r": {r["REASON_DETAIL"]: r["REASON"] for _, r in df_tf.iterrows()},
         "d_to_e": {r["REASON_DETAIL"]: r["REASON_EXP"] for _, r in df_tf.iterrows()},
-        "acts": sorted(df_act["ACTIVITY"].unique()) if not df_act.empty else ["INBOUND"],
+        "acts": sorted(df_act["ACTIVITY"].unique()) if not df_act.empty else ["INBOUND", "OUTBOUND"],
         "chans": sorted(df_act["CHANNEL"].unique()) if not df_act.empty else ["Chat", "Call"]
     }
 
@@ -80,50 +80,51 @@ col_form, col_spacer, col_log = st.columns([6.8, 0.2, 3])
 # ================= CỘT TRÁI (FORM NHẬP LIỆU) =================
 with col_form:
     st.markdown("##### MP Ticketing Form")
-    
-    # ROW 1: CHANNEL & ACTIVITY
-    r1c1, r1c2 = st.columns(2)
+
+    # ROW 2: CHANNEL & PLATFORM
+    r2c1, r2c2 = st.columns(2)
     chan_opts = m["chans"]
     chat_idx = chan_opts.index("Chat") if "Chat" in chan_opts else 0
-    channel = r1c1.selectbox("Channel *", options=chan_opts, index=chat_idx)
-    activity = r1c2.multiselect("Activity *", options=m["acts"], default=["INBOUND"])
+    channel = r2c1.selectbox("Channel *", options=chan_opts, index=chat_idx)
+    pl = r2c2.selectbox("Platform *", options=list(m["p_to_c"].keys()))
 
-    # ROW 2: INQUIRY DATE & TIME (Time đổi thành text_input để chỉnh sửa tự do như QLineEdit)
-    r2c1, r2c2 = st.columns(2)
-    inq_date = r2c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
-    inq_time = r2c2.text_input("Inquiry Time (HH:MM)", value=dt.datetime.now().strftime("%H:%M"))
-
-    # ROW 3: RATING
-    rating = st.radio("Rating", ["1","2","3","4","5","No"], index=5, horizontal=True)
+    # ROW 3: ACTIVITY & RATING (2 Ô RADIO TRÊN CÙNG 1 DÒNG)
+    r3c1, r3c2 = st.columns(2)
+    acts_opts = m["acts"]
+    inb_idx = acts_opts.index("INBOUND") if "INBOUND" in acts_opts else 0
+    activity = r3c1.radio("Activity *", options=acts_opts, index=inb_idx, horizontal=True)
+    rating = r3c2.radio("Rating", ["1","2","3","4","5","No"], index=5, horizontal=True)
     
-    # ROW 4: PLATFORM & CLIENT
+    # ROW 4: CLIENT & STORE
     r4c1, r4c2 = st.columns(2)
-    pl = r4c1.selectbox("Platform *", options=list(m["p_to_c"].keys()))
-    cl = r4c2.selectbox("Client *", options=sorted(list(m["p_to_c"].get(pl, []))))
-    
-    # ROW 5: STORE & BRAND
-    r5c1, r5c2 = st.columns(2)
+    cl = r4c1.selectbox("Client *", options=sorted(list(m["p_to_c"].get(pl, []))))
     st_opts = sorted(list(m["pc_to_s"].get((pl, cl), set())))
-    store = r5c1.selectbox("Store *", options=st_opts)
+    store = r4c2.selectbox("Store *", options=st_opts)
+    
+    # ROW 5: BRAND & RELATED SKU
+    r5c1, r5c2 = st.columns(2)
     is_brand_enable = store in BRAND_ENABLED_STORES
     br_opts = sorted(m["s_to_b"].get(store, [])) if is_brand_enable else []
-    brand = r5c2.selectbox("Brand", options=br_opts, disabled=not is_brand_enable)
-    
-    # ROW 6: RELATED SKU
-    sku = st.text_input("Related SKU", disabled=not is_brand_enable, placeholder="Nhập SKU nếu có...")
+    brand = r5c1.selectbox("Brand", options=br_opts, disabled=not is_brand_enable)
+    sku = r5c2.text_input("Related SKU", disabled=not is_brand_enable, placeholder="Nhập SKU nếu có...")
 
-    # ROW 7: OID & USER ID
+    # ROW 6: OID & USER ID
+    r6c1, r6c2 = st.columns(2)
+    oid = r6c1.text_input("OID Reference")
+    uid = r6c2.text_input("User ID *")
+    
+    # ROW 7: REASON PARENT (TRÁI) & DETAIL (PHẢI)
     r7c1, r7c2 = st.columns(2)
-    oid = r7c1.text_input("OID Reference")
-    uid = r7c2.text_input("User ID *")
-    
-    # ROW 8: REASON PARENT (TRÁI) & DETAIL (PHẢI)
-    r8c1, r8c2 = st.columns(2)
-    rs_detail = r8c2.selectbox("Reason Detail *", options=sorted(m["d_to_r"].keys()), index=None, placeholder="🔍 Tìm lý do...")
+    rs_detail = r7c2.selectbox("Reason Detail *", options=sorted(m["d_to_r"].keys()), index=None, placeholder="🔍 Tìm lý do...")
     rs_parent = m["d_to_r"].get(rs_detail, "") if rs_detail else ""
-    r8c1.text_input("Reason Parent", value=rs_parent, disabled=True)
+    r7c1.text_input("Reason Parent", value=rs_parent, disabled=True)
     
-    # ROW 9: CUSTOMER COMPLAINT (CĂN GIỮA TUYỆT ĐỐI KHÔNG KHUNG)
+    # ROW 1: INQUIRY DATE & TIME
+    r1c1, r1c2 = st.columns(2)
+    inq_date = r1c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
+    inq_time = r1c2.text_input("Inquiry Time (HH:MM)", value=dt.datetime.now().strftime("%H:%M"))
+    
+    # ROW 8: CUSTOMER COMPLAINT (CĂN GIỮA TUYỆT ĐỐI)
     st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
     space_left, center_col, space_right = st.columns([1, 2, 1])
     with center_col:
@@ -140,11 +141,12 @@ with col_form:
             row = {
                 "ticket_id": st.session_state['tid'], 
                 "agent": st.session_state['agent_name'],
-                "activity": ", ".join(activity), 
+                "activity": activity, # Đã update lấy text trực tiếp từ radio
                 "channel": channel, 
                 "platform": pl, 
                 "client": cl, 
                 "store": store, 
+                "rating": rating, # Bổ sung lưu rating vào DB
                 "oid": oid, 
                 "user_id": uid, 
                 "reason_detail": rs_detail, 
@@ -188,7 +190,6 @@ with col_form:
                 
                 log_html = f"✅ **{st.session_state['tid']}** | {uid} <br> <span style='color:blue;'><i>- {cau_random}</i></span>"
                 st.session_state['sys_log'].insert(0, log_html)
-                # Sinh mã Ticket mới sau khi submit
                 st.session_state['tid'] = f"MP-{dt.date.today().strftime('%d%m%y')}-{uuid.uuid4().hex[:4].upper()}"
                 st.rerun()
             except Exception as e: st.error(f"Lỗi DB: {e}")
@@ -196,7 +197,6 @@ with col_form:
 # ================= CỘT PHẢI (HÀNH CHÍNH & LOG) =================
 with col_log:
     st.markdown("##### System Info")
-    # Đưa Ticket ID và Agent sang bên này
     st.text_input("Ticket ID", value=st.session_state['tid'], disabled=True)
     st.text_input("Agent", value=st.session_state.get('agent_name', 'Unknown'), disabled=True)
     

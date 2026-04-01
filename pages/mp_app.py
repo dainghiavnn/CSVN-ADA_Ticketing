@@ -14,13 +14,22 @@ if 'logged_in' not in st.session_state or not st.session_state['logged_in']:
     st.warning("Vui lòng đăng nhập lại tại trang chủ.")
     st.stop()
 
-# CSS FIX LAYOUT
+# CSS TỐI ƯU GIAO DIỆN VÀ STYLE CUSTOMER COMPLAINT
 st.markdown("""
     <style>
         .block-container { padding-top: 1rem !important; max-width: 98% !important; }
         div[data-testid="stVerticalBlock"] > div { margin-bottom: -10px !important; }
         .stSelectbox, .stTextInput, .stMultiSelect { margin-bottom: 8px !important; }
         label { font-size: 13px !important; font-weight: 600 !important; color: #444; }
+        
+        /* Style riêng cho phần Customer Complaint */
+        .complaint-label {
+            color: red !important;
+            font-size: 18px !important;
+            font-weight: 900 !important;
+            text-transform: uppercase !important;
+            margin-top: 10px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -66,24 +75,24 @@ col_form, col_spacer, col_log = st.columns([6.8, 0.2, 3])
 with col_form:
     st.markdown("##### MP Ticketing Form")
     
-    # --- ROW 1: CHANNEL & AGENT ---
+    # ROW 1: CHANNEL & AGENT
     r1c1, r1c2 = st.columns(2)
     chan_opts = m["chans"]
     chat_idx = chan_opts.index("Chat") if "Chat" in chan_opts else 0
     channel = r1c1.selectbox("Channel *", options=chan_opts, index=chat_idx)
     agent = r1c2.text_input("Agent", value=st.session_state.get('agent_name', 'Unknown'), disabled=True)
     
-    # --- ROW 2: ACTIVITY & RATING ---
+    # ROW 2: ACTIVITY & RATING
     r2c1, r2c2 = st.columns(2)
     activity = r2c1.multiselect("Activity *", options=m["acts"], default=["INBOUND"])
     rating = r2c2.radio("Rating", ["1","2","3","4","5","No"], index=5, horizontal=True)
     
-    # --- ROW 3: PLATFORM & CLIENT ---
+    # ROW 3: PLATFORM & CLIENT
     r3c1, r3c2 = st.columns(2)
     pl = r3c1.selectbox("Platform *", options=list(m["p_to_c"].keys()))
     cl = r3c2.selectbox("Client *", options=sorted(list(m["p_to_c"].get(pl, []))))
     
-    # --- ROW 4: STORE & BRAND (GOM CHUNG 1 DÒNG) ---
+    # ROW 4: STORE & BRAND (GOM CHUNG)
     r4c1, r4c2 = st.columns(2)
     st_opts = sorted(list(m["pc_to_s"].get((pl, cl), set())))
     store = r4c1.selectbox("Store *", options=st_opts)
@@ -92,20 +101,24 @@ with col_form:
     br_opts = sorted(m["s_to_b"].get(store, [])) if is_brand_enable else []
     brand = r4c2.selectbox("Brand", options=br_opts, disabled=not is_brand_enable)
     
-    # --- ROW 5: OID & USER ID ---
+    # ROW 5: OID & USER ID (GOM CHUNG)
     r5c1, r5c2 = st.columns(2)
     oid = r5c1.text_input("OID Reference")
     uid = r5c2.text_input("User ID *")
     
-    # --- ROW 6: REASON PARENT (TRÁI) & DETAIL (PHẢI) ---
+    # ROW 6: REASON PARENT (TRÁI) & DETAIL (PHẢI)
     r6c1, r6c2 = st.columns(2)
     rs_detail = r6c2.selectbox("Reason Detail *", options=sorted(m["d_to_r"].keys()), index=None, placeholder="🔍 Tìm lý do...")
     rs_parent = m["d_to_r"].get(rs_detail, "") if rs_detail else ""
     r6c1.text_input("Reason Parent", value=rs_parent, disabled=True)
 
-    with st.expander("Thêm tùy chọn:"):
-        is_cp = st.checkbox("CUSTOMER COMPLAINT?")
-        sku = st.text_input("Related SKU", disabled=not is_brand_enable)
+    # ROW 7: CUSTOMER COMPLAINT (MÀU ĐỎ, VIẾT HOA, FONT LỚN)
+    st.markdown('<p class="complaint-label">THIS IS A CUSTOMER COMPLAINT ?</p>', unsafe_allow_html=True)
+    r7c1, r7c2 = st.columns([0.1, 0.9])
+    with r7c1:
+        is_cp = st.checkbox("", label_visibility="collapsed")
+    with r7c2:
+        sku = st.text_input("Related SKU", label_visibility="collapsed", placeholder="Related SKU (If any)", disabled=not is_brand_enable)
 
     if rs_detail: st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'N/A')}")
     cmt = st.text_area("Comment / Description", height=60)
@@ -128,23 +141,26 @@ with col_form:
                 engine = create_engine(f"postgresql://{pg_cfg['user']}:{pg_cfg['password']}@{pg_cfg['host']}:{pg_cfg['port']}/{pg_cfg['database']}")
                 pd.DataFrame([row]).to_sql("master_logs", engine, if_exists='append', index=False)
                 
-                # --- LOGIC CÂU QUOTE VUI VẺ ---
+                # DANH SÁCH CÂU QUOTE VUI VẺ TỪ FILE LOGIC CŨ
                 vui_ve = [
                     "Em tuyệt dzời lắm 💞", "Ờ mây dzing! Gút chóp em! 😍", "Một chíu nữa thôi là clear xong cái shop rồi 😛",
                     "Ê, làm đúng shop chưa đó ba?", "Nãy giờ đi đâu đó? 🤬🤬🤬", "Chat tiếp đi 🤨", "Tất cả là do Daniel 🤩",
                     "Chị Uyên đẹp gái ha mấy đứa!😙", "Thẳng cái lưng lên 💢", "Ún mín nước đi rồi log tiếp! ☕",
                     "Ai lớp Daniel 😘😘😘", "Đi *è đi 💦", "Tà tữa gì chưa người đẹp 🥛", "Coi chừng miss tin nhắn 😥",
-                    "Miss shop kìa má 🙃", "Shop nhỏ đừng quên 😫", "Bảo vệ thận đi mậy!🚽🚽🚽", "Clear lẹ lẹ còn đi date mầy ôi 🙄!",
-                    "Nhiều tin quá, cíu bóe 🔥🔥🔥🚒🚒🚒", "Quên cái gì không đó mại 😗", "Mắt mở chưa đó 😳",
-                    "Mới vô ca mà mệt rồi hả mại 😪", "Còn sống không đó 😬", "Làm đúng quy trình chưa đó bé ơi 😑",
-                    "Nhìn kỹ tên shop hộ cái 😬", "Senior đang theo dõi log đó 👀", "Đừng để Senior nhắc lần 3 😈",
-                    "Làm lẹ nhưng mà đừng ẩu nha mại 😑", "Lướt ít thôi má ơi 😑", "Đừng có lịm ngang nha ní 😱",
-                    "Mừi đỉm, khum lói nhèo ⭐⭐⭐"
+                    "Miss shop kìa má 🙃", "Shop nhỏ đừng quên 😫", "Cứu Thuận Phát/ Reckitt/ Nutifood/ Ensure/ Curel đi mấy níííííííí 😥",
+                    "Bảo vệ thận đi mậy!🚽🚽🚽", "Clear lẹ lẹ còn đi date mầy ôi 🙄!", "Nhiều tin quá, cíu bóe 🔥🔥🔥🚒🚒🚒",
+                    "Quên cái gì không đó mại 😗", "Mắt mở chưa đó 😳", "Mới vô ca mà mệt rồi hả mại 😪", "Còn sống không đó 😬",
+                    "Làm đúng quy trình chưa đó bé ơi 😑", "Nhìn kỹ tên shop hộ cái 😬", "Senior đang theo dõi log đó 👀",
+                    "Đừng để Senior nhắc lần 3 😈", "Làm lẹ nhưng mà đừng ẩu nha mại 😑", "Lướt ít thôi má ơi 😑", 
+                    "Đừng có lịm ngang nha ní 😱", "Mừi đỉm, khum lói nhèo ⭐⭐⭐"
                 ]
                 cau_random = random.choice(vui_ve)
                 
-                # Cập nhật log hiển thị văn bản
-                st.session_state['sys_log'].insert(0, f"✅ **{st.session_state['tid']}** | {uid} <br> <span style='color:blue;'><i>- {cau_random}</i></span>")
+                # Cập nhật log hiển thị văn bản có màu
+                log_html = f"✅ **{st.session_state['tid']}** | {uid} <br> <span style='color:blue;'><i>- {cau_random}</i></span>"
+                st.session_state['sys_log'].insert(0, log_html)
+                
+                # Reset ID và reload
                 st.session_state['tid'] = f"MP-{dt.date.today().strftime('%d%m%y')}-{uuid.uuid4().hex[:4].upper()}"
                 st.rerun()
             except Exception as e: st.error(f"Lỗi DB: {e}")

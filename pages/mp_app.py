@@ -2,229 +2,184 @@ import streamlit as st
 import pandas as pd
 import datetime as dt
 import uuid
+import time
 import random
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
+import gspread
 
-# Lấy tên Agent hiện tại và trích xuất chữ cái đầu tiên (Viết hoa)
-current_agent_name = st.session_state.get('agent_name', 'Unknown')
-agent_char = current_agent_name[0].upper() if current_agent_name else 'U'
-
-# --- BẢO HIỂM SESSION STATE ---
-if 'sys_log' not in st.session_state:
-    st.session_state['sys_log'] = []
-# Tự động sinh mã Ticket ID (MP - Ngày tháng - Ký tự Agent - 6 mã Hex)
-if 'tid' not in st.session_state:
-    st.session_state['tid'] = f"MP-{dt.date.today().strftime('%d%m%y')}-{agent_char}-{uuid.uuid4().hex[:6].upper()}"
-if 'logged_in' not in st.session_state or not st.session_state['logged_in']:
-    st.warning("Vui lòng đăng nhập lại tại trang chủ.")
-    st.stop()
-
-# CSS FIX LAYOUT & STYLE COMPLAINT
-st.markdown("""
-    <style>
-        .block-container { padding-top: 1rem !important; max-width: 98% !important; }
-        div[data-testid="stVerticalBlock"] > div { margin-bottom: -8px !important; }
-        .stSelectbox, .stTextInput, .stMultiSelect, .stDateInput, .stRadio { margin-bottom: 5px !important; }
-        
-        /* IN ĐẬM VÀ LÀM RÕ TITLE CỦA CÁC TRƯỜNG NHẬP LIỆU */
-        label, div[data-testid="stWidgetLabel"] p { 
-            font-size: 14px !important; 
-            font-weight: 800 !important; /* In đậm nét chữ */
-            color: #000 !important;      /* Màu đen tuyền để nổi bật */
-        }
-        
-        /* Ép màu đỏ và in đậm trực tiếp cho chữ của ô tick Customer Complaint */
-        div[data-testid="stCheckbox"] p {
-            color: red !important;
-            font-size: 16px !important;
-            font-weight: 900 !important;
-            text-transform: uppercase !important;
-        }
-        
-        /* Đổi viền ô vuông thành đỏ */
-        div[data-testid="stCheckbox"] div[role="checkbox"] {
-            border-color: red !important;
-        }
-    </style>
-""", unsafe_allow_html=True)
+# ===== CONFIGURATION & HYBRID SETUP =====
+st.set_page_config(layout="wide", page_title="ADAHUB Unified v24.28 (Web)")
 
 BRAND_ENABLED_STORES = {"Bách Hóa Unilever Official Store", "Unilever Premium Beauty", "KAO Official Store"}
 
-# 1. LOAD CONFIG
-@st.cache_data(ttl=600)
-def load_config():
-    import gspread
+# Khởi tạo session state cho Ticket ID và System Log để không bị mất khi reload
+if 'tid' not in st.session_state:
+    st.session_state['tid'] = f"CSVN-{dt.date.today().strftime('%d%m%y')}-{uuid.uuid4().hex[:6].upper()}"
+if 'sys_log' not in st.session_state:
+    st.session_state['sys_log'] = []
+
+# ==========================================
+# 1. LOAD CONFIG TỪ GOOGLE SHEETS (DÙNG CACHE)
+# ==========================================
+@st.cache_data(ttl=600) # Cache 10 phút để tránh bị limit API
+def load_data_models():
+    # Sử dụng Service Account JSON lưu trong st.secrets
     gc = gspread.service_account_from_dict(st.secrets["gcp_service_account"])
     sh = gc.open_by_url(st.secrets["DATA_SHEET_URL"])
+    
     def to_df(n):
-        return pd.DataFrame(sh.worksheet(n).get_all_records()).astype(str).apply(lambda x: x.str.strip())
+        try:
+            ws = sh.worksheet(n)
+            data = ws.get_all_records()
+            return pd.DataFrame(data).astype(str).apply(lambda x: x.str.strip()) if data else pd.DataFrame()
+        except: return pd.DataFrame()
+
+    p_to_c, pc_to_s, s_to_b = {}, {}, {}
     
     df_cs = to_df("client_store")
-    p_to_c, pc_to_s = {}, {}
     for _, r in df_cs.iterrows():
         p, c, s = r["PLATFORM"], r["CLIENT"], r["STORE"]
         p_to_c.setdefault(p, set()).add(c)
         pc_to_s.setdefault((p, c), set()).add(s)
         
     df_bs = to_df("brand_store")
-    s_to_b = {}
-    for _, r in df_bs.iterrows():
+    for _, r in df_bs.iterrows(): 
         s_to_b.setdefault(r["STORE"], []).append(r["BRAND_NAME"])
-
+    
     df_tf = to_df("ticket_field")
+    all_parents = sorted(set(df_tf["REASON"].tolist()))
+    d_to_r = {r["REASON_DETAIL"]: r["REASON"] for _, r in df_tf.iterrows()}
+    d_to_e = {r["REASON_DETAIL"]: r["REASON_EXP"] for _, r in df_tf.iterrows()}
+    
+    df_ag = to_df("agent_id")
+    agent_list = df_ag["NAME"].unique().tolist() if not df_ag.empty else ["Agent_01"]
+    
     df_act = to_df("activity")
-    
-    # BỘ LỌC THÉP: Loại bỏ hoàn toàn chuỗi rỗng "", chữ "nan" (do pandas tự sinh), và "None"
-    valid_acts = [x for x in df_act["ACTIVITY"].unique() if str(x).strip() not in ["", "nan", "None"]] if not df_act.empty else ["INBOUND", "OUTBOUND"]
-    valid_chans = [x for x in df_act["CHANNEL"].unique() if str(x).strip() not in ["", "nan", "None"]] if not df_act.empty else ["Chat", "Call"]
-    
+    act_list = ["INBOUND", "OUTBOUND"]
+    channels = []
+    if not df_act.empty:
+        act_list = sorted([str(x).strip() for x in df_act["ACTIVITY"].unique() if str(x).strip()])
+        channels = sorted(df_act["CHANNEL"].unique())
+        
     return {
-        "p_to_c": p_to_c, "pc_to_s": pc_to_s, "s_to_b": s_to_b,
-        "d_to_r": {r["REASON_DETAIL"]: r["REASON"] for _, r in df_tf.iterrows()},
-        "d_to_e": {r["REASON_DETAIL"]: r["REASON_EXP"] for _, r in df_tf.iterrows()},
-        "acts": sorted(valid_acts),
-        "chans": sorted(valid_chans)
+        "p_to_c": p_to_c, "pc_to_s": pc_to_s, "s_to_b": s_to_b, 
+        "d_to_r": d_to_r, "d_to_e": d_to_e, "agents": agent_list, 
+        "all_parents": all_parents, "activities": act_list, "channels": channels
     }
 
-m = load_config()
+m = load_data_models()
 
-# 2. DÀN TRANG (7:3)
-col_form, col_spacer, col_log = st.columns([6.8, 0.2, 3])
+# ==========================================
+# 2. HÀM KẾT NỐI POSTGRESQL (STORAGE ENGINE)
+# ==========================================
+def get_pg_engine():
+    pg = st.secrets["postgres"]
+    conn_str = f"postgresql://{pg['user']}:{pg['password']}@{pg['host']}:{pg['port']}/{pg['database']}"
+    return create_engine(conn_str)
 
-# ================= CỘT TRÁI (FORM NHẬP LIỆU) =================
-with col_form:
-    st.markdown("##### MP Ticketing Form")
+def save_to_postgres(data_dict, table_name):
+    engine = get_pg_engine()
+    df = pd.DataFrame([data_dict])
+    df.to_sql(table_name, engine, if_exists='append', index=False)
 
-    # ROW 2: CHANNEL & PLATFORM
-    r2c1, r2c2 = st.columns(2)
-    chan_opts = m["chans"]
-    chat_idx = chan_opts.index("Chat") if "Chat" in chan_opts else 0
-    channel = r2c1.selectbox("Channel *", options=chan_opts, index=chat_idx)
-    pl = r2c2.selectbox("Platform *", options=list(m["p_to_c"].keys()))
+# ==========================================
+# GIAO DIỆN CHÍNH (UI)
+# ==========================================
+st.title("ADAHUB Unified v24.28 (Web)")
 
-    # ROW 3: ACTIVITY & RATING (2 Ô RADIO TRÊN CÙNG 1 DÒNG)
-    r3c1, r3c2 = st.columns(2)
-    acts_opts = m["acts"]
-    inb_idx = acts_opts.index("INBOUND") if "INBOUND" in acts_opts else 0
-    activity = r3c1.radio("Activity *", options=acts_opts, index=inb_idx, horizontal=True)
-    rating = r3c2.radio("Rating", ["1","2","3","4","5","No"], index=5, horizontal=True)
-    
-    # ROW 4: CLIENT & STORE
-    r4c1, r4c2 = st.columns(2)
-    cl = r4c1.selectbox("Client *", options=sorted(list(m["p_to_c"].get(pl, []))))
-    st_opts = sorted(list(m["pc_to_s"].get((pl, cl), set())))
-    store = r4c2.selectbox("Store *", options=st_opts)
-    
-    # ROW 5: BRAND & RELATED SKU
-    r5c1, r5c2 = st.columns(2)
-    is_brand_enable = store in BRAND_ENABLED_STORES
-    br_opts = sorted(m["s_to_b"].get(store, [])) if is_brand_enable else []
-    brand = r5c1.selectbox("Brand", options=br_opts, disabled=not is_brand_enable)
-    sku = r5c2.text_input("Related SKU", disabled=not is_brand_enable, placeholder="Nhập SKU nếu có...")
-    
-    # ROW 1: INQUIRY DATE & TIME
-    r1c1, r1c2 = st.columns(2)
-    inq_date = r1c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
-    inq_time = r1c2.text_input("Inquiry Time (HH:MM)", value=dt.datetime.now().strftime("%H:%M"))
-    
-    # ROW 7: REASON PARENT (TRÁI) & DETAIL (PHẢI)
-    r7c1, r7c2 = st.columns(2)
-    rs_detail = r7c2.selectbox("Reason Detail *", options=sorted(m["d_to_r"].keys()), index=None, placeholder="🔍 Tìm lý do...")
-    rs_parent = m["d_to_r"].get(rs_detail, "") if rs_detail else ""
-    r7c1.text_input("Reason Parent", value=rs_parent, disabled=True)
-    
-    # ROW 8: CUSTOMER COMPLAINT (CĂN GIỮA TUYỆT ĐỐI)
-    st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-    space_left, center_col, space_right = st.columns([1, 2, 1])
-    with center_col:
-        is_cp = st.checkbox("THIS IS A CUSTOMER COMPLAINT ?")
+st.subheader("Master Log Entry")
 
-    if rs_detail: st.info(f"**Guide:** {m['d_to_e'].get(rs_detail, 'N/A')}")
+# Block 1: Thông tin chung
+c1, c2, c3, c4 = st.columns(4)
+with c1:
+    tid = st.text_input("Ticket #", value=st.session_state['tid'], disabled=True)
+    channel_index = m["channels"].index("Chat") if "Chat" in m["channels"] else 0
+    channel = st.selectbox("Channel *", options=m["channels"], index=channel_index)
+with c2:
+    agent = st.selectbox("Agent *", options=m["agents"])
+    rating = st.radio("Rating (Reviews)", options=["1","2","3","4","5","No"], index=5, horizontal=True)
+with c3:
+    activity = st.multiselect("Activity Type", options=m["activities"], default=["INBOUND"])
+    inq_date = st.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
+with c4:
+    inq_time = st.time_input("Inquiry Time", value=dt.datetime.now().time())
+    st.markdown("<br>", unsafe_allow_html=True) # Spacer
+    is_complaint = st.checkbox("THIS IS A CUSTOMER COMPLAINT ?", value=False)
+    if is_complaint: st.error("🚨 Đã đánh dấu là Khiếu nại!")
 
-    # ROW 6: OID & USER ID
-    r6c1, r6c2 = st.columns(2)
-    oid = r6c1.text_input("OID Reference")
-    uid = r6c2.text_input("User ID *")
+st.markdown("---")
 
-    # ROW CHO COMMENT DESCRIPTION
-    cmt = st.text_area("Comment / Description", height=60)
+# Block 2: Logic Sync (Platform -> Client -> Store -> Brand)
+c_pl, c_cl, c_st, c_br = st.columns(4)
 
-    # NÚT SUBMIT
-    if st.button("Submit Ticket", type="primary", use_container_width=True):
-        if not uid or not rs_detail:
-            st.warning("⚠️ Vui lòng điền User ID và Lý do.")
-        else:
-            row = {
-                "ticket_id": st.session_state['tid'], 
-                "agent": current_agent_name,
-                "activity": activity, 
-                "channel": channel, 
-                "platform": pl, 
-                "client": cl, 
-                "store": store, 
-                "rating": rating,
-                "oid": oid, 
-                "user_id": uid, 
-                "reason_detail": rs_detail, 
-                "reason_parent": rs_parent, 
-                "is_complaint": "Yes" if is_cp else "No",
-                "comment": cmt, 
-                "brand": brand if is_brand_enable else "", 
-                "sku": sku if is_brand_enable else "",
-                "inquiry_date": inq_date.strftime("%d/%m/%Y"),
-                "inquiry_time": inq_time,
-                "timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-            try:
-                pg_cfg = st.secrets["postgres"]
-                engine = create_engine(f"postgresql://{pg_cfg['user']}:{pg_cfg['password']}@{pg_cfg['host']}:{pg_cfg['port']}/{pg_cfg['database']}")
-                pd.DataFrame([row]).to_sql("master_logs", engine, if_exists='append', index=False)
-                
-                # QUOTES VUI VẺ
-                vui_ve = [
-                    "Em tuyệt dzời lắm 💞", "Ờ mây dzing! Gút chóp em! 😍",
-                    "Một chíu nữa thôi là clear xong cái shop rồi 😛", "Ê, làm đúng shop chưa đó ba?",
-                    "Nãy giờ đi đâu đó? 🤬🤬🤬", "Chat tiếp đi 🤨", "Tất cả là do Daniel 🤩",
-                    "Chị Uyên đẹp gái ha mấy đứa!😙", "Thẳng cái lưng lên 💢", "Ún mín nước đi rồi log tiếp! ☕",
-                    "Ai lớp Daniel 😘😘😘", "Đi *è đi 💦", "Tà tữa gì chưa người đẹp 🥛",
-                    "Coi chừng miss tin nhắn 😥 ", "Miss shop kìa má 🙃", "Shop nhỏ đừng quên 😫",
-                    "Cứu Thuận Phát/ Reckitt/ Nutifood/ Ensure/ Curel đi mấy níííííííí 😥",
-                    "Bảo vệ thận đi mậy!🚽🚽🚽", "Clear lẹ lẹ còn đi date mầy ôi 🙄!",
-                    "Nhiều tin quá, cíu bóe 🔥🔥🔥🚒🚒🚒", "Quên cái gì không đó mại 😗",
-                    "Mắt mở chưa đó 😳", "Mới vô ca mà mệt rồi hả mại 😪", "Còn sống không đó 😬",
-                    "Làm đúng quy trình chưa đó bé ơi 😑", "Nhìn lại lần nữa cho chắc 🧐",
-                    "Coi lại shop nhỏ dùm chị tui 😫", "Hơi lag đó, tỉnh lên 😤", "Nhìn kỹ tên shop hộ cái 😬",
-                    "Gần hết ca rồi, ráng 😭", "Senior đang theo dõi log đó 👀", "Đừng để Senior nhắc lần 3 😈",
-                    "Làm lẹ nhưng mà đừng ẩu nha mại 😑", "Lướt ít thôi má ơi 😑",
-                    "Cái này quen mà, làm đi 😌 Sai oánh đòn!", "Đừng có biến mất nha 😶‍🌫️",
-                    "Gì mà giỏi dữ vậy trời 😘😘😘", "Mượt như sunsilk 🧴", "Tự nhiên thấy tự hào dùm luôn á 😭",
-                    "Cái này mà không ổn thì cái gì ổn 😤", "Đừng có lịm ngang nha ní 😱",
-                    "Còn sống không, log cái nữa coi 😬", "Còn thở là còn Log 😎",
-                    "Log gì mà pro max dữ vị ⭐", "Mừi đỉm, khum lói nhèo ⭐⭐⭐"
-                ]
-                cau_random = random.choice(vui_ve)
-                
-                log_html = f"✅ **{st.session_state['tid']}** | {uid} <br> <span style='color:blue;'><i>- {cau_random}</i></span>"
-                st.session_state['sys_log'].insert(0, log_html)
-                
-                # Sinh mã Ticket mới kèm Ký tự Agent
-                st.session_state['tid'] = f"MP-{dt.date.today().strftime('%d%m%y')}-{agent_char}-{uuid.uuid4().hex[:6].upper()}"
-                st.rerun()
-            except Exception as e: st.error(f"Lỗi DB: {e}")
+pl = c_pl.selectbox("Platform *", options=list(m["p_to_c"].keys()))
 
-# ================= CỘT PHẢI (HÀNH CHÍNH & LOG) =================
-with col_log:
-    st.markdown("##### System Info")
-    st.text_input("Ticket ID", value=st.session_state['tid'], disabled=True)
-    st.text_input("Agent", value=current_agent_name, disabled=True)
-    
-    st.markdown("<hr style='margin:0.5em 0;'>", unsafe_allow_html=True)
-    st.markdown("##### System Log")
-    log_box = st.container(height=450, border=True)
-    with log_box:
-        if not st.session_state['sys_log']:
-            st.caption("Chưa có ca làm việc mới.")
-        else:
-            for item in st.session_state['sys_log']:
-                st.markdown(item, unsafe_allow_html=True)
-                st.markdown("<hr style='margin:0.2em 0; opacity:0.3;'>", unsafe_allow_html=True)
+cl_options = sorted(list(m["p_to_c"].get(pl, [])))
+cl = c_cl.selectbox("Client *", options=cl_options)
+
+st_options = sorted(list(m["pc_to_s"].get((pl, cl), set())))
+store = c_st.selectbox("Store *", options=st_options)
+
+is_enable = store in BRAND_ENABLED_STORES
+br_options = sorted(m["s_to_b"].get(store, [])) if is_enable else []
+brand = c_br.selectbox("Brand", options=br_options, disabled=not is_enable)
+
+# Block 3: Details & OID
+c_sk, c_oid, c_uid, c_rs = st.columns(4)
+sku = c_sk.text_input("Related SKU", disabled=not is_enable)
+oid = c_oid.text_input("OID")
+uid = c_uid.text_input("User ID *")
+
+# Logic Sync: Reason Details -> Reason Parent
+dt_options = sorted(list(m["d_to_r"].keys()))
+rs_detail = c_rs.selectbox("Reason Details *", options=dt_options)
+rs_parent = m["d_to_r"].get(rs_detail, "")
+
+# Hiển thị Guideline
+st.info(f"**Contact Reason:** {rs_parent} &nbsp;|&nbsp; **Guide:** {m['d_to_e'].get(rs_detail, 'Waiting Selection.')}")
+
+cmt = st.text_area("Comment / Description", height=68)
+
+# Nút Bấm Submit & Xử lý Database
+if st.button("Submit Data", type="primary", use_container_width=True):
+    if not uid.strip() or not rs_detail.strip():
+        st.warning("Reason Details & User ID là bắt buộc.")
+    else:
+        vui_ve = [
+            "Em tuyệt dzời lắm 💞", "Ờ mây dzing! Gút chóp em! 😍",
+            "Một chíu nữa thôi là clear xong cái shop rồi 😛",
+            "Cứu Thuận Phát/ Reckitt/ Nutifood/ Ensure/ Curel đi mấy níííííííí 😥",
+            "Tất cả là do Daniel 🤩", "Chị Uyên đẹp gái ha mấy đứa!😙",
+            "Mừi đỉm, khum lói nhèo ⭐⭐⭐", "Đừng có lịm ngang nha ní 😱"
+        ]
+        cau_random = random.choice(vui_ve)
+        
+        # Map dữ liệu để đưa vào Postgres
+        row_data = {
+            "ticket_id": tid, "agent": agent, "activity": ", ".join(activity),
+            "channel": channel, "platform": pl, "client": cl, "store": store,
+            "rating": rating, "reason_parent": rs_parent, "reason_detail": rs_detail,
+            "is_complaint": "Yes" if is_complaint else "No", "brand": brand if is_enable else "",
+            "sku": sku if is_enable else "", "oid": oid, "user_id": uid, "comment": cmt,
+            "inquiry_date": inq_date.strftime("%d/%m/%Y"), "inquiry_time": inq_time.strftime("%H:%M"),
+            "timestamp": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        try:
+            save_to_postgres(row_data, "master_logs")
+            
+            # Cập nhật System Log nội bộ UI
+            log_html = f"✅ Logged: {tid} | User ID: **{uid}** <br> <span style='color:blue'><i>- {cau_random}</i></span>"
+            st.session_state['sys_log'].insert(0, log_html)
+            
+            # Cấp mã Ticket mới và refresh
+            st.session_state['tid'] = f"CSVN-{dt.date.today().strftime('%d%m%y')}-{uuid.uuid4().hex[:6].upper()}"
+            st.rerun() 
+        except Exception as e:
+            st.error(f"Lỗi hệ thống khi lưu Database: {e}")
+
+# Vùng hiển thị System Log
+st.markdown("### System Log")
+for log in st.session_state['sys_log'][:3]:
+    st.markdown(log, unsafe_allow_html=True)
+    st.divider()

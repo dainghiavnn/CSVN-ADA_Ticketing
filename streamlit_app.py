@@ -30,7 +30,7 @@ def check_login(email, password):
             return True
     return False
 
-# 3. Màn hình Login (Bị chặn ở đây nếu chưa đăng nhập)
+# 3. MÀN HÌNH LOGIN (Bị chặn ở đây nếu chưa đăng nhập)
 if not st.session_state['logged_in']:
     st.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True)
     with st.container(border=True):
@@ -47,26 +47,27 @@ if not st.session_state['logged_in']:
 # 4. KHAI BÁO CÁC TRANG DỰ ÁN CÓ SẴN (Trong thư mục 'pages/')
 page_csvn = st.Page("pages/csvn_ticket.py", title="Dự án CSVN", icon="📝")
 page_loreal = st.Page("pages/loreal_ticket.py", title="Dự án L'OREAL", icon="💄")
-# Sau này có project mới thì cứ khai báo thêm page ở đây
+page_mp = st.Page("pages/mp_app.py", title="Dự án MP", icon="💊") # Thêm trang MP ở đây
 
 # 5. LOGIC PHÂN QUYỀN VÀ ĐIỀU HƯỚNG (DYNAMIC NAVIGATION)
 pages_dict = {}
 role = st.session_state['user_project']
 
 if role == "ADMIN":
-    # Admin thấy toàn bộ
-    pages_dict["Quản lý Toàn phần (ADMIN)"] = [page_csvn, page_loreal]
+    # Admin thấy toàn bộ các project
+    pages_dict["Quản lý Toàn phần (ADMIN)"] = [page_csvn, page_loreal, page_mp]
 elif role == "CSVN":
-    # Team CSVN chỉ thấy CSVN
     pages_dict["Workspace"] = [page_csvn]
 elif role == "LOREAL":
-    # Team L'OREAL chỉ thấy L'OREAL
     pages_dict["Workspace"] = [page_loreal]
+elif role == "MP":
+    # Phân quyền cho team MP
+    pages_dict["Workspace"] = [page_mp]
 else:
     st.error("Tài khoản của bạn chưa được phân bổ vào dự án nào hợp lệ.")
     st.stop()
 
-# Hiển thị thông tin User và nút Logout ở Sidebar
+# 6. Hiển thị thông tin User và nút Logout ở Sidebar
 st.sidebar.markdown(f"**👤 {st.session_state['agent_name']}**")
 st.sidebar.caption(f"Role: {role}")
 if st.sidebar.button("Logout", use_container_width=True):

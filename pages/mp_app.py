@@ -82,11 +82,6 @@ with col_form:
     chat_idx = chan_opts.index("Chat") if "Chat" in chan_opts else 0
     channel = r1c1.selectbox("Channel *", options=chan_opts, index=chat_idx)
     agent = r1c2.text_input("Agent", value=st.session_state.get('agent_name', 'Unknown'), disabled=True)
-    
-    # ROW 2: INQUIRY DATE & TIME (GOM CHUNG 1 DÒNG)
-    r2c1, r2c2 = st.columns(2)
-    inq_date = r2c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
-    inq_time = r2c2.time_input("Inquiry Time", value=dt.datetime.now().time())
 
     # ROW 3: ACTIVITY & RATING
     r3c1, r3c2 = st.columns(2)
@@ -108,18 +103,21 @@ with col_form:
     
     # ROW 6: RELATED SKU (Nằm dưới dòng Store/Brand)
     sku = st.text_input("Related SKU", disabled=not is_brand_enable, placeholder="Nhập SKU nếu có...")
-
-    # ROW 7: OID & USER ID
-    r7c1, r7c2 = st.columns(2)
-    oid = r7c1.text_input("OID Reference")
-    uid = r7c2.text_input("User ID *")
     
     # ROW 8: REASON PARENT (TRÁI) & DETAIL (PHẢI)
     r8c1, r8c2 = st.columns(2)
     rs_detail = r8c2.selectbox("Reason Detail *", options=sorted(m["d_to_r"].keys()), index=None, placeholder="🔍 Tìm lý do...")
     rs_parent = m["d_to_r"].get(rs_detail, "") if rs_detail else ""
     r8c1.text_input("Reason Parent", value=rs_parent, disabled=True)
-
+    # ROW 7: OID & USER ID
+    r7c1, r7c2 = st.columns(2)
+    oid = r7c1.text_input("OID Reference")
+    uid = r7c2.text_input("User ID *")
+    
+    # ROW 2: INQUIRY DATE & TIME (GOM CHUNG 1 DÒNG)
+    r2c1, r2c2 = st.columns(2)
+    inq_date = r2c1.date_input("Inquiry Date", value=dt.date.today(), format="DD/MM/YYYY")
+    inq_time = r2c2.time_input("Inquiry Time", value=dt.datetime.now().time())
     # ROW 9: CUSTOMER COMPLAINT (CHECKBOX VÀ CHỮ TRÊN 1 DÒNG)
     comp_col1, comp_col2 = st.columns([0.05, 0.95])
     with comp_col1:
